@@ -173,6 +173,12 @@ h2 {
   word-break: keep-all;
 }
 
+.ticker-number {
+  display: inline-block;
+  min-width: 9ch;
+  font-variant-numeric: tabular-nums;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
@@ -359,6 +365,13 @@ h2 {
 .bar-list {
   display: grid;
   gap: 15px;
+  margin-top: 24px;
+}
+
+.side-section-title {
+  margin: 0 0 2px;
+  color: #111914;
+  font-size: 17px;
 }
 
 .bar-row {
@@ -417,6 +430,92 @@ h2 {
 .empty {
   margin: 0;
   color: #526055;
+}
+
+.trend-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(24, 32, 27, 0.08);
+  border-radius: 8px;
+  background: #fbfcf8;
+}
+
+.trend-card svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.trend-card line {
+  stroke: rgba(24, 32, 27, 0.16);
+  stroke-width: 1;
+}
+
+.trend-card text {
+  fill: #526055;
+  font-size: 11px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.trend-card .line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.trend-card .combined {
+  stroke: #143f3d;
+}
+
+.trend-card .inwoong {
+  stroke: #c5453f;
+}
+
+.trend-card .woonjung {
+  stroke: #236e69;
+}
+
+.trend-card .dot {
+  fill: #ffffff;
+  stroke-width: 2;
+}
+
+.trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: #526055;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.trend-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trend-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.trend-legend .combined {
+  background: #143f3d;
+}
+
+.trend-legend .inwoong {
+  background: #c5453f;
+}
+
+.trend-legend .woonjung {
+  background: #236e69;
 }
 
 .auth-layout {

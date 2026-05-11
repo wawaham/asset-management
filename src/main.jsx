@@ -28,18 +28,36 @@ const ownerAliases = {
 };
 
 const defaultCategories = [
-  'CMA',
-  'ISA',
-  '주택청약',
   '청년도약계좌',
-  '해외주식',
-  '연금저축펀드',
-  '전세금',
+  '주택청약',
+  'ISA',
+  'NH CMA',
+  '미래에셋 CMA',
+  '전세보증금',
   '코인',
+  '연금저축펀드',
   '현금자산',
 ];
 
 const storageKey = 'couple-asset-snapshots';
+const hundredMillion = 100000000;
+const tenThousand = 10000;
+
+const aprilRows = [
+  { owner: '인웅', category: '청년도약계좌', amount: 0.077 * hundredMillion },
+  { owner: '인웅', category: '주택청약', amount: 0.175 * hundredMillion },
+  { owner: '인웅', category: 'ISA', amount: 0.894 * hundredMillion },
+  { owner: '인웅', category: 'NH CMA', amount: 0.405 * hundredMillion },
+  { owner: '인웅', category: '미래에셋 CMA', amount: 0.1 * hundredMillion },
+  { owner: '인웅', category: '전세보증금', amount: 0.98 * hundredMillion },
+  { owner: '인웅', category: '코인(이더리움)', amount: 0.123 * hundredMillion },
+  { owner: '인웅', category: '연금저축펀드', amount: 0.055 * hundredMillion },
+  { owner: '인웅', category: '아빠 증여', amount: 0.5 * hundredMillion },
+  { owner: '운정', category: '주택청약', amount: 1080 * tenThousand },
+  { owner: '운정', category: '청년도약계좌', amount: 880 * tenThousand },
+  { owner: '운정', category: '국장 CMA', amount: 400 * tenThousand },
+  { owner: '운정', category: 'ISA', amount: 200 * tenThousand },
+];
 
 const initialRows = partners.flatMap((owner) =>
   defaultCategories.map((category) => ({
@@ -55,32 +73,23 @@ const sampleSnapshots = [
   {
     month: '2026-03',
     rows: [
-      { owner: '인웅', category: 'CMA', amount: 3200000 },
-      { owner: '인웅', category: 'ISA', amount: 5100000 },
-      { owner: '인웅', category: '주택청약', amount: 2600000 },
-      { owner: '인웅', category: '해외주식', amount: 8200000 },
-      { owner: '인웅', category: '현금자산', amount: 1400000 },
-      { owner: '운정', category: 'CMA', amount: 2800000 },
-      { owner: '운정', category: '청년도약계좌', amount: 4400000 },
-      { owner: '운정', category: '연금저축펀드', amount: 3500000 },
-      { owner: '운정', category: '전세금', amount: 20000000 },
-      { owner: '운정', category: '현금자산', amount: 900000 },
+      { owner: '인웅', category: '청년도약계좌', amount: 7000000 },
+      { owner: '인웅', category: '주택청약', amount: 17000000 },
+      { owner: '인웅', category: 'ISA', amount: 85000000 },
+      { owner: '인웅', category: 'NH CMA', amount: 33000000 },
+      { owner: '인웅', category: '미래에셋 CMA', amount: 8000000 },
+      { owner: '인웅', category: '전세보증금', amount: 98000000 },
+      { owner: '인웅', category: '코인(이더리움)', amount: 10000000 },
+      { owner: '인웅', category: '연금저축펀드', amount: 5000000 },
+      { owner: '운정', category: '주택청약', amount: 10600000 },
+      { owner: '운정', category: '청년도약계좌', amount: 8300000 },
+      { owner: '운정', category: '국장 CMA', amount: 3600000 },
+      { owner: '운정', category: 'ISA', amount: 1800000 },
     ],
   },
   {
     month: '2026-04',
-    rows: [
-      { owner: '인웅', category: 'CMA', amount: 3900000 },
-      { owner: '인웅', category: 'ISA', amount: 5600000 },
-      { owner: '인웅', category: '주택청약', amount: 2700000 },
-      { owner: '인웅', category: '해외주식', amount: 9000000 },
-      { owner: '인웅', category: '현금자산', amount: 1600000 },
-      { owner: '운정', category: 'CMA', amount: 3400000 },
-      { owner: '운정', category: '청년도약계좌', amount: 4900000 },
-      { owner: '운정', category: '연금저축펀드', amount: 3800000 },
-      { owner: '운정', category: '전세금', amount: 20000000 },
-      { owner: '운정', category: '현금자산', amount: 1300000 },
-    ],
+    rows: aprilRows,
   },
 ];
 
@@ -89,7 +98,7 @@ function formatWon(value) {
     style: 'currency',
     currency: 'KRW',
     maximumFractionDigits: 0,
-  }).format(value || 0);
+  }).format(Math.round(value || 0));
 }
 
 function currentMonth() {
@@ -112,11 +121,37 @@ function normalizeRows(rows) {
   }));
 }
 
+function rowsWithIds(rows) {
+  return normalizeRows(rows).map((row) => ({
+    id: crypto.randomUUID(),
+    owner: row.owner,
+    category: row.category,
+    amount: row.amount,
+    memo: row.memo || '',
+  }));
+}
+
+function snapshotTotal(snapshot, owner) {
+  return normalizeRows(snapshot.rows || []).reduce((sum, row) => {
+    if (owner && normalizeOwner(row.owner) !== owner) return sum;
+    return sum + normalizeAmount(row.amount);
+  }, 0);
+}
+
+function mergeSeedSnapshots(snapshots) {
+  const normalized = snapshots.map((snapshot) => ({
+    ...snapshot,
+    rows: normalizeRows(snapshot.rows || []),
+  }));
+  const withoutApril = normalized.filter((snapshot) => snapshot.month !== '2026-04');
+  return [...withoutApril, sampleSnapshots[1]].sort((a, b) => a.month.localeCompare(b.month));
+}
+
 function App() {
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(!isSupabaseReady);
-  const [month, setMonth] = useState(currentMonth());
-  const [rows, setRows] = useState(initialRows);
+  const [month, setMonth] = useState('2026-04');
+  const [rows, setRows] = useState(rowsWithIds(aprilRows));
   const [snapshots, setSnapshots] = useState(sampleSnapshots);
   const [newCategory, setNewCategory] = useState('');
   const [status, setStatus] = useState('');
@@ -144,10 +179,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (session || !isSupabaseReady) {
-      loadLocalSnapshots();
+    const selected = snapshots.find((snapshot) => snapshot.month === month);
+    if (selected) {
+      setRows(rowsWithIds(selected.rows));
     }
-  }, [session]);
+  }, [month, snapshots]);
 
   const totals = useMemo(() => {
     const byOwner = partners.reduce((acc, owner) => ({ ...acc, [owner]: 0 }), {});
@@ -168,7 +204,7 @@ function App() {
 
   const previousTotal = useMemo(() => {
     if (!previousSnapshot) return 0;
-    return previousSnapshot.rows.reduce((sum, row) => sum + normalizeAmount(row.amount), 0);
+    return snapshotTotal(previousSnapshot);
   }, [previousSnapshot]);
 
   const monthlyGrowth = totals.combined - previousTotal;
@@ -184,7 +220,7 @@ function App() {
     try {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length) {
-        setSnapshots(parsed.map((snapshot) => ({ ...snapshot, rows: normalizeRows(snapshot.rows || []) })));
+        setSnapshots(mergeSeedSnapshots(parsed));
       }
     } catch {
       localStorage.removeItem(storageKey);
@@ -246,22 +282,16 @@ function App() {
       return;
     }
 
-    const loaded = data.map((item) => ({
-      month: item.month,
-      rows: normalizeRows(item.rows || []),
-    }));
+    const loaded = mergeSeedSnapshots(
+      data.map((item) => ({
+        month: item.month,
+        rows: item.rows || [],
+      })),
+    );
     setSnapshots(loaded.length ? loaded : sampleSnapshots);
     const current = loaded.find((item) => item.month === month);
     if (current) {
-      setRows(
-        current.rows.map((row) => ({
-          id: crypto.randomUUID(),
-          owner: normalizeOwner(row.owner),
-          category: row.category,
-          amount: row.amount,
-          memo: row.memo || '',
-        })),
-      );
+      setRows(rowsWithIds(current.rows));
     }
     setStatus('Supabase 기록을 불러왔습니다.');
     setLoading(false);
@@ -308,15 +338,7 @@ function App() {
 
   function applySnapshot(snapshot) {
     setMonth(snapshot.month);
-    setRows(
-      normalizeRows(snapshot.rows).map((row) => ({
-        id: crypto.randomUUID(),
-        owner: row.owner,
-        category: row.category,
-        amount: row.amount,
-        memo: row.memo || '',
-      })),
-    );
+    setRows(rowsWithIds(snapshot.rows));
   }
 
   async function signOut() {
@@ -365,20 +387,18 @@ function App() {
       <section className="summary-grid" aria-label="자산 요약">
         <SummaryCard
           icon={<CircleDollarSign />}
-          label="함께 쌓은 자산"
-          value={formatWon(totals.combined)}
+          label="합산 자산"
+          value={totals.combined}
+          ticker
           tone="strong"
         />
-        <SummaryCard icon={<Users />} label="인웅 자산" value={formatWon(totals.byOwner['인웅'])} />
-        <SummaryCard
-          icon={<WalletCards />}
-          label="운정 자산"
-          value={formatWon(totals.byOwner['운정'])}
-        />
+        <SummaryCard icon={<Users />} label="인웅 자산" value={totals.byOwner['인웅']} ticker />
+        <SummaryCard icon={<WalletCards />} label="운정 자산" value={totals.byOwner['운정']} ticker />
         <SummaryCard
           icon={monthlyGrowth >= 0 ? <ArrowUpRight /> : <ArrowDownRight />}
           label={previousSnapshot ? `${previousSnapshot.month} 대비` : '전월 대비'}
-          value={formatWon(monthlyGrowth)}
+          value={monthlyGrowth}
+          ticker
           accent={monthlyGrowth >= 0 ? 'up' : 'down'}
         />
       </section>
@@ -434,13 +454,16 @@ function App() {
         <aside className="insight-panel">
           <div className="panel-head compact">
             <div>
-              <p className="section-kicker">Monthly View</p>
-              <h2>월별 흐름</h2>
+              <p className="section-kicker">Trend</p>
+              <h2>월별 자산 추이</h2>
             </div>
             <LineChart size={22} />
           </div>
 
+          <MonthlyTrendChart snapshots={snapshots} />
+
           <div className="bar-list">
+            <h3 className="side-section-title">항목별 비중</h3>
             {categoryEntries.length === 0 ? (
               <p className="empty">금액을 입력하면 항목별 비중이 표시됩니다.</p>
             ) : (
@@ -461,7 +484,7 @@ function App() {
           <div className="history-list">
             <h3>저장된 월</h3>
             {snapshots.map((snapshot) => {
-              const total = snapshot.rows.reduce((sum, row) => sum + normalizeAmount(row.amount), 0);
+              const total = snapshotTotal(snapshot);
               return (
                 <button key={snapshot.month} onClick={() => applySnapshot(snapshot)}>
                   <span>{snapshot.month}</span>
@@ -538,7 +561,7 @@ function AuthScreen() {
         </label>
         <button className="primary-button auth-submit" type="submit" disabled={loading}>
           {loading ? <Loader2 className="spin" size={17} /> : <Lock size={17} />}
-          기록실 열기
+          로그인
         </button>
         {message && <p className="auth-message">{message}</p>}
       </form>
@@ -546,13 +569,95 @@ function AuthScreen() {
   );
 }
 
-function SummaryCard({ icon, label, value, tone, accent }) {
+function SummaryCard({ icon, label, value, tone, accent, ticker }) {
   return (
     <article className={`summary-card ${tone || ''} ${accent || ''}`}>
       <div className="card-icon">{icon}</div>
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong>{ticker ? <AnimatedWon value={value} /> : formatWon(value)}</strong>
     </article>
+  );
+}
+
+function AnimatedWon({ value }) {
+  const [displayValue, setDisplayValue] = useState(value || 0);
+
+  useEffect(() => {
+    const start = displayValue;
+    const end = value || 0;
+    const duration = 650;
+    let frameId;
+    let startTime;
+
+    function tick(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(start + (end - start) * eased);
+      if (progress < 1) {
+        frameId = requestAnimationFrame(tick);
+      }
+    }
+
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [value]);
+
+  return <span className="ticker-number">{formatWon(displayValue)}</span>;
+}
+
+function MonthlyTrendChart({ snapshots }) {
+  const data = snapshots
+    .map((snapshot) => ({
+      month: snapshot.month,
+      combined: snapshotTotal(snapshot),
+      inwoong: snapshotTotal(snapshot, '인웅'),
+      woonjung: snapshotTotal(snapshot, '운정'),
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+
+  const maxValue = Math.max(...data.flatMap((item) => [item.combined, item.inwoong, item.woonjung]), 1);
+  const width = 320;
+  const height = 178;
+  const padding = 22;
+  const xStep = data.length > 1 ? (width - padding * 2) / (data.length - 1) : 0;
+
+  function point(item, index, key) {
+    const x = padding + index * xStep;
+    const y = height - padding - (item[key] / maxValue) * (height - padding * 2);
+    return `${x},${y}`;
+  }
+
+  function polyline(key) {
+    return data.map((item, index) => point(item, index, key)).join(' ');
+  }
+
+  if (!data.length) {
+    return <p className="empty">저장된 월이 생기면 추이가 표시됩니다.</p>;
+  }
+
+  return (
+    <div className="trend-card">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="월별 자산 추이 차트">
+        <line x1={padding} x2={width - padding} y1={height - padding} y2={height - padding} />
+        <polyline className="line combined" points={polyline('combined')} />
+        <polyline className="line inwoong" points={polyline('inwoong')} />
+        <polyline className="line woonjung" points={polyline('woonjung')} />
+        {data.map((item, index) => (
+          <g key={item.month}>
+            <circle className="dot combined" cx={point(item, index, 'combined').split(',')[0]} cy={point(item, index, 'combined').split(',')[1]} r="3.5" />
+            <text x={padding + index * xStep} y={height - 5}>
+              {item.month.slice(5)}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <div className="trend-legend">
+        <span><i className="combined" />합산</span>
+        <span><i className="inwoong" />인웅</span>
+        <span><i className="woonjung" />운정</span>
+      </div>
+    </div>
   );
 }
 
