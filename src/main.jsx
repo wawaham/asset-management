@@ -148,6 +148,113 @@ function formatAmountInput(value) {
   return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(numeric);
 }
 
+function parseUserAgent(userAgent) {
+  const ua = userAgent || '';
+  const browser = [
+    [/Edg\/([\d.]+)/, 'Edge'],
+    [/Chrome\/([\d.]+)/, 'Chrome'],
+    [/Firefox\/([\d.]+)/, 'Firefox'],
+    [/Version\/([\d.]+).*Safari/, 'Safari'],
+  ].find(([pattern]) => pattern.test(ua));
+  const os = [
+    [/Windows NT/, 'Windows'],
+    [/Mac OS X/, 'macOS'],
+    [/Android/, 'Android'],
+    [/(iPhone|iPad|iPod)/, 'iOS'],
+    [/Linux/, 'Linux'],
+  ].find(([pattern]) => pattern.test(ua));
+  const device = /Mobi|Android|iPhone/i.test(ua) ? 'mobile' : /iPad|Tablet/i.test(ua) ? 'tablet' : 'desktop';
+
+  return {
+    browser: browser ? browser[1] : 'Unknown',
+    os: os ? os[1] : 'Unknown',
+    device,
+  };
+}
+
+function getGeoPosition() {
+  if (!navigator.geolocation) {
+    return Promise.resolve({ status: 'unsupported' });
+  }
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({
+        status: 'granted',
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+      }),
+      (error) => resolve({ status: error.code === 1 ? 'denied' : 'unavailable', message: error.message }),
+      { enableHighAccuracy: false, maximumAge: 300000, timeout: 1200 },
+    );
+  });
+}
+
+async function getLocationSnapshot() {
+  if (!navigator.permissions?.query) return getGeoPosition();
+
+  try {
+    const permission = await navigator.permissions.query({ name: 'geolocation' });
+    if (permission.state !== 'granted') return { status: permission.state };
+    return getGeoPosition();
+  } catch {
+    return { status: 'unknown' };
+  }
+}
+
+async function captureClientContext() {
+  const parsed = parseUserAgent(navigator.userAgent);
+  const location = await getLocationSnapshot();
+
+  return {
+    location,
+    client: {
+      ...parsed,
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+      languages: Array.from(navigator.languages || []),
+      platform: navigator.platform,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      screen: {
+        width: window.screen?.width,
+        height: window.screen?.height,
+        pixelRatio: window.devicePixelRatio,
+      },
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      },
+      url: window.location.href,
+      referrer: document.referrer || null,
+      recordedAt: new Date().toISOString(),
+    },
+  };
+}
+
+async function writeActivityLogEntry({ session, action, month = null, total = 0 }) {
+  if (!isSupabaseReady || !session) return;
+
+  try {
+    const context = await captureClientContext();
+    const { error } = await supabase.from('asset_activity_logs').insert({
+      action,
+      month,
+      total,
+      user_id: session.user.id,
+      user_email: session.user.email,
+      client_context: context.client,
+      location: context.location,
+    });
+
+    if (error) {
+      console.warn('Activity log failed:', error.message);
+    }
+  } catch (error) {
+    console.warn('Activity log failed:', error);
+  }
+}
+
 function normalizeOwner(owner) {
   return ownerAliases[owner] || owner;
 }
@@ -420,13 +527,7 @@ function App() {
   }
 
   async function writeActivityLog(action, targetMonth, total) {
-    if (!isSupabaseReady || !session) return;
-    await supabase.from('asset_activity_logs').insert({
-      action,
-      month: targetMonth,
-      total,
-      user_email: session.user.email,
-    });
+    await writeActivityLogEntry({ session, action, month: targetMonth, total });
   }
 
   function removeSnapshotLocally(targetMonth) {
@@ -704,6 +805,9 @@ function AuthScreen() {
 
     if (error) {
       setMessage('로그인에 실패했습니다. 이메일과 비밀번호를 다시 확인해주세요.');
+    } else {
+      const { data } = await supabase.auth.getSession();
+      await writeActivityLogEntry({ session: data.session, action: 'login' });
     }
     setLoading(false);
   }

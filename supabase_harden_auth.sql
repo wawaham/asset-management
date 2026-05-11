@@ -35,12 +35,25 @@ using (auth.uid() is not null);
 
 create table if not exists public.asset_activity_logs (
   id bigint generated always as identity primary key,
-  action text not null check (action in ('save', 'delete')),
-  month text not null,
+  action text not null check (action in ('login', 'save', 'delete')),
+  month text,
   total numeric not null default 0,
+  user_id uuid,
   user_email text,
+  client_context jsonb not null default '{}'::jsonb,
+  location jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table public.asset_activity_logs
+  alter column month drop not null,
+  add column if not exists user_id uuid,
+  add column if not exists client_context jsonb not null default '{}'::jsonb,
+  add column if not exists location jsonb not null default '{}'::jsonb;
+
+alter table public.asset_activity_logs
+  drop constraint if exists asset_activity_logs_action_check,
+  add constraint asset_activity_logs_action_check check (action in ('login', 'save', 'delete'));
 
 alter table public.asset_activity_logs enable row level security;
 
