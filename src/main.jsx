@@ -910,7 +910,7 @@ function CelebrationModal({ data, onClose }) {
         <p className="celebration-kicker">
           {isGrowth ? '전월보다 자산이 늘었어요.' : '이번 달 기록도 잘 남겼어요.'}
         </p>
-        <h3>{isGrowth ? '좋은 흐름입니다.' : '괜찮아요. 기록한 만큼 다시 조정할 수 있어요.'}</h3>
+        <h3>{isGrowth ? '좋은 흐름입니다.' : '괜찮아요. 다음 달에 더 힘내봐요.'}</h3>
         <div className="celebration-total">
           <span>현재 합산 자산</span>
           <strong><AnimatedWon value={data.total} /></strong>
@@ -944,9 +944,10 @@ function ConfettiBurst() {
 
 function ClappingHands() {
   return (
-    <div className="clapping-hands" aria-hidden="true">
-      <span className="hand left-hand" />
-      <span className="hand right-hand" />
+    <div className="encourage-badge" aria-hidden="true">
+      <span className="encourage-ring" />
+      <span className="encourage-ring second" />
+      <strong>👏</strong>
       <i />
       <i />
       <i />

@@ -902,6 +902,108 @@ h2 {
   }
 }
 
+.encourage-badge {
+  position: relative;
+  display: grid;
+  width: 168px;
+  height: 132px;
+  margin-bottom: -8px;
+  place-items: center;
+}
+
+.encourage-badge strong {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 82px;
+  height: 82px;
+  place-items: center;
+  border: 1px solid rgba(35, 110, 105, 0.14);
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 18px 34px rgba(30, 44, 34, 0.14);
+  font-size: 42px;
+  line-height: 1;
+  animation: encourage-pop 1.35s ease-in-out infinite;
+}
+
+.encourage-ring {
+  position: absolute;
+  width: 82px;
+  height: 82px;
+  border: 2px solid rgba(35, 110, 105, 0.24);
+  border-radius: 999px;
+  animation: encourage-ring 1.7s ease-out infinite;
+}
+
+.encourage-ring.second {
+  border-color: rgba(197, 69, 63, 0.2);
+  animation-delay: 0.45s;
+}
+
+.encourage-badge i {
+  position: absolute;
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #c5453f;
+  opacity: 0;
+  animation: encourage-spark 1.35s ease-in-out infinite;
+}
+
+.encourage-badge i:nth-of-type(1) {
+  top: 26px;
+  left: 42px;
+}
+
+.encourage-badge i:nth-of-type(2) {
+  top: 24px;
+  right: 44px;
+  background: #236e69;
+  animation-delay: 0.14s;
+}
+
+.encourage-badge i:nth-of-type(3) {
+  bottom: 28px;
+  right: 36px;
+  background: #d6a54a;
+  animation-delay: 0.24s;
+}
+
+@keyframes encourage-pop {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(-5px) scale(1.05);
+  }
+}
+
+@keyframes encourage-ring {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.86);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.62);
+  }
+}
+
+@keyframes encourage-spark {
+  0%, 100% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.6);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1);
+  }
+}
+
+/* Legacy hand animation removed in favor of a softer encouragement badge. */
+/*
 .clapping-hands {
   position: relative;
   width: 210px;
@@ -1000,6 +1102,7 @@ h2 {
     transform: translateY(-12px) rotate(45deg) scale(1.2);
   }
 }
+*/
 
 .auth-layout {
   display: grid;
