@@ -1249,6 +1249,24 @@ h2 {
     padding: 18px;
   }
 
+  .modal-backdrop {
+    padding: 10px;
+  }
+
+  .modal-panel {
+    max-height: calc(100dvh - 20px);
+    padding: 16px;
+  }
+
+  .modal-panel.wide {
+    width: 100%;
+  }
+
+  .modal-panel.wide .trend-card.large {
+    min-height: 420px;
+    padding: 12px;
+  }
+
   .topbar {
     align-items: stretch;
     flex-direction: column;

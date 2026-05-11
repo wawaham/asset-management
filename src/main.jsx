@@ -887,6 +887,18 @@ function AnimatedWon({ value }) {
 
 function MonthlyTrendChart({ snapshots, large = false }) {
   const [hover, setHover] = useState(null);
+  const [isMobileChart, setIsMobileChart] = useState(false);
+
+  useEffect(() => {
+    function syncChartSize() {
+      setIsMobileChart(window.matchMedia('(max-width: 760px)').matches);
+    }
+
+    syncChartSize();
+    window.addEventListener('resize', syncChartSize);
+    return () => window.removeEventListener('resize', syncChartSize);
+  }, []);
+
   const data = snapshots
     .map((snapshot) => ({
       month: snapshot.month,
@@ -897,9 +909,14 @@ function MonthlyTrendChart({ snapshots, large = false }) {
     .sort((a, b) => a.month.localeCompare(b.month));
 
   const maxValue = Math.max(...data.flatMap((item) => [item.combined, item.inwoong, item.woonjung]), 1);
-  const width = large ? 760 : 320;
-  const height = large ? 340 : 178;
-  const padding = large ? { top: 28, right: 24, bottom: 36, left: 74 } : { top: 18, right: 14, bottom: 30, left: 54 };
+  const largeMobile = large && isMobileChart;
+  const width = largeMobile ? 360 : large ? 760 : 320;
+  const height = largeMobile ? 320 : large ? 340 : 178;
+  const padding = largeMobile
+    ? { top: 28, right: 16, bottom: 38, left: 64 }
+    : large
+      ? { top: 28, right: 24, bottom: 36, left: 74 }
+      : { top: 18, right: 14, bottom: 30, left: 54 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const xStep = data.length > 1 ? plotWidth / (data.length - 1) : 0;
