@@ -344,9 +344,9 @@ function App() {
       <section className="topbar">
         <div>
           <p className="eyebrow">
-            <Sparkles size={15} /> Inwoong & Woonjung Asset Room
+            <Sparkles size={15} /> 인웅 · 운정
           </p>
-          <h1>인웅과 운정의 자산 흐름을 조용히 쌓아가는 공간</h1>
+          <h1>월별 자산 현황</h1>
         </div>
         <div className="top-actions">
           <div className="month-control">
@@ -507,9 +507,9 @@ function AuthScreen() {
           </div>
           <span>IW WJ</span>
         </div>
-        <p className="eyebrow">Private Ledger</p>
-        <h1>우리의 숫자가 조용히 쌓이는 곳</h1>
-        <p className="auth-copy">인웅과 운정만 열 수 있는 월간 자산 기록실입니다.</p>
+        <p className="eyebrow">Asset Management</p>
+        <h1>로그인</h1>
+        <p className="auth-copy">등록된 계정으로 월별 자산 현황을 확인하세요.</p>
         <label>
           이메일
           <span>
