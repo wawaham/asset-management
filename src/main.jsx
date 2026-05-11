@@ -720,7 +720,7 @@ function AuthScreen() {
         <p className="eyebrow">
           <Home size={15} /> 내 집 마련
         </p>
-        <h1>로그인</h1>
+        <h1>우리집 마련</h1>
         <p className="auth-copy">등록된 계정으로 월별 자산 현황을 확인하세요.</p>
         <label>
           이메일
