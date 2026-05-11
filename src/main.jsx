@@ -110,6 +110,16 @@ function normalizeAmount(value) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
+function formatAmountInput(value) {
+  const rawValue = String(value ?? '').replaceAll(',', '').trim();
+  if (!rawValue) return '';
+  const numeric = Number(rawValue);
+  if (!Number.isFinite(numeric)) return String(value ?? '');
+  return new Intl.NumberFormat('ko-KR', {
+    maximumFractionDigits: 0,
+  }).format(numeric);
+}
+
 function normalizeOwner(owner) {
   return ownerAliases[owner] || owner;
 }
@@ -688,7 +698,7 @@ function AssetColumn({ owner, rows, onUpdate, onRemove, onAdd }) {
             <input
               className="amount-input"
               inputMode="numeric"
-              value={row.amount}
+              value={formatAmountInput(row.amount)}
               onChange={(event) => onUpdate(row.id, 'amount', event.target.value)}
               placeholder="0"
               aria-label="금액"
