@@ -295,13 +295,20 @@ h2 {
   margin-bottom: 18px;
 }
 
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .panel-head.compact {
   margin-bottom: 20px;
 }
 
 .primary-button,
 .category-add button,
-.secondary-button {
+.secondary-button,
+.danger-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -321,7 +328,24 @@ h2 {
   color: #18201b;
 }
 
+.danger-button {
+  border: 1px solid rgba(159, 53, 47, 0.18);
+  background: rgba(255, 255, 255, 0.78);
+  color: #9f352f;
+}
+
+.danger-button.solid {
+  border-color: #9f352f;
+  background: #9f352f;
+  color: #ffffff;
+}
+
 .primary-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.danger-button:disabled {
   cursor: wait;
   opacity: 0.65;
 }
@@ -730,6 +754,59 @@ h2 {
   gap: 15px;
 }
 
+.delete-confirm-form {
+  display: grid;
+  gap: 14px;
+}
+
+.delete-warning {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(159, 53, 47, 0.14);
+  border-radius: 8px;
+  background: rgba(159, 53, 47, 0.06);
+  color: #9f352f;
+}
+
+.delete-warning strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #18201b;
+}
+
+.delete-warning p {
+  margin: 0;
+  color: #526055;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.delete-confirm-form label {
+  display: grid;
+  gap: 8px;
+  color: #526055;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.delete-confirm-form input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(24, 32, 27, 0.1);
+  border-radius: 8px;
+  background: #fbfcf8;
+  color: #18201b;
+  outline: 0;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
 .celebration-card {
   position: relative;
   display: grid;
@@ -1100,7 +1177,13 @@ h2 {
     flex-direction: column;
   }
 
-  .primary-button {
+  .panel-actions {
+    width: 100%;
+    flex-direction: column-reverse;
+  }
+
+  .primary-button,
+  .danger-button {
     width: 100%;
   }
 

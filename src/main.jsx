@@ -45,6 +45,7 @@ const defaultCategories = [
 ];
 
 const storageKey = 'couple-asset-snapshots';
+const deletedMonthsKey = 'couple-asset-deleted-months';
 const hundredMillion = 100000000;
 const tenThousand = 10000;
 
@@ -80,15 +81,17 @@ const mayRows = [
   { owner: '운정', category: 'ISA', amount: 218 * tenThousand },
 ];
 
-const initialRows = partners.flatMap((owner) =>
-  defaultCategories.map((category) => ({
+function createBlankRows() {
+  return partners.flatMap((owner) => defaultCategories.map((category) => ({
     id: crypto.randomUUID(),
     owner,
     category,
     amount: '',
     memo: '',
-  })),
-);
+  })));
+}
+
+const initialRows = createBlankRows();
 
 const sampleSnapshots = [
   {
@@ -169,16 +172,29 @@ function snapshotTotal(snapshot, owner) {
   }, 0);
 }
 
+function getDeletedSnapshotMonths() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(deletedMonthsKey) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setDeletedSnapshotMonths(months) {
+  localStorage.setItem(deletedMonthsKey, JSON.stringify([...new Set(months)]));
+}
+
 function mergeSeedSnapshots(snapshots) {
+  const deletedMonths = new Set(getDeletedSnapshotMonths());
   const normalized = snapshots.map((snapshot) => ({
     ...snapshot,
     rows: normalizeRows(snapshot.rows || []),
   }));
   const seedMonths = new Set(['2026-04', '2026-05']);
   const withoutSeedMonths = normalized.filter((snapshot) => !seedMonths.has(snapshot.month));
-  return [...withoutSeedMonths, sampleSnapshots[1], sampleSnapshots[2]].sort((a, b) =>
-    a.month.localeCompare(b.month),
-  );
+  const seedSnapshots = sampleSnapshots.filter((snapshot) => seedMonths.has(snapshot.month) && !deletedMonths.has(snapshot.month));
+  return [...withoutSeedMonths, ...seedSnapshots].sort((a, b) => a.month.localeCompare(b.month));
 }
 
 function App() {
@@ -193,6 +209,7 @@ function App() {
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [trendModalOpen, setTrendModalOpen] = useState(false);
   const [celebration, setCelebration] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseReady) {
@@ -337,6 +354,7 @@ function App() {
     };
 
     setSnapshots((current) => {
+      setDeletedSnapshotMonths(getDeletedSnapshotMonths().filter((deletedMonth) => deletedMonth !== month));
       const next = current.filter((snapshot) => snapshot.month !== month);
       const sorted = [...next, { month, rows: cleanRows }].sort((a, b) => a.month.localeCompare(b.month));
       localStorage.setItem(storageKey, JSON.stringify(sorted));
@@ -369,6 +387,44 @@ function App() {
       if (isFirstSaveForMonth) setCelebration(celebrationPayload);
     }
     setLoading(false);
+  }
+
+  async function deleteSnapshot({ email, password }) {
+    if (!isSupabaseReady) {
+      setStatus('Supabase 환경값이 없어서 브라우저 기록만 삭제했습니다.');
+      removeSnapshotLocally(month);
+      setDeleteModalOpen(false);
+      return { ok: true };
+    }
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (authError) {
+      return { ok: false, message: '이메일 또는 비밀번호가 맞지 않습니다.' };
+    }
+
+    const { error } = await supabase.from('asset_snapshots').delete().eq('month', month);
+    if (error) {
+      return { ok: false, message: `삭제 실패: ${error.message}` };
+    }
+
+    removeSnapshotLocally(month);
+    setStatus(`${month} 자산 기록을 삭제했습니다.`);
+    setDeleteModalOpen(false);
+    return { ok: true };
+  }
+
+  function removeSnapshotLocally(targetMonth) {
+    setDeletedSnapshotMonths([...getDeletedSnapshotMonths(), targetMonth]);
+    setSnapshots((current) => {
+      const next = current.filter((snapshot) => snapshot.month !== targetMonth);
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      return next;
+    });
+    setRows(createBlankRows());
   }
 
   function applySnapshot(snapshot) {
@@ -436,10 +492,16 @@ function App() {
               <p className="section-kicker">Asset Input</p>
               <h2>항목별 금액 입력</h2>
             </div>
-            <button className="primary-button" onClick={saveSnapshot} disabled={loading}>
-              {loading ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
-              저장
-            </button>
+            <div className="panel-actions">
+              <button className="danger-button" onClick={() => setDeleteModalOpen(true)} disabled={loading}>
+                <Trash2 size={17} />
+                월 기록 삭제
+              </button>
+              <button className="primary-button" onClick={saveSnapshot} disabled={loading}>
+                {loading ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
+                저장
+              </button>
+            </div>
           </div>
 
           <div className="category-add">
@@ -540,6 +602,10 @@ function App() {
 
       {celebration && (
         <CelebrationModal data={celebration} onClose={() => setCelebration(null)} />
+      )}
+
+      {deleteModalOpen && (
+        <DeleteSnapshotModal month={month} onClose={() => setDeleteModalOpen(false)} onConfirm={deleteSnapshot} />
       )}
     </main>
   );
@@ -872,6 +938,54 @@ function ClappingHands() {
       <i />
       <i />
     </div>
+  );
+}
+
+function DeleteSnapshotModal({ month, onClose, onConfirm }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage('');
+    const result = await onConfirm({ email, password });
+    if (!result.ok) {
+      setMessage(result.message || '삭제에 실패했습니다.');
+    }
+    setLoading(false);
+  }
+
+  return (
+    <Modal title={`${month} 기록 삭제`} onClose={onClose}>
+      <form className="delete-confirm-form" onSubmit={submit}>
+        <div className="delete-warning">
+          <Trash2 size={22} />
+          <div>
+            <strong>이 월의 자산 기록을 완전히 삭제합니다.</strong>
+            <p>삭제하려면 인웅 또는 운정 계정의 이메일과 비밀번호를 입력하세요.</p>
+          </div>
+        </div>
+        <label>
+          이메일
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required />
+        </label>
+        <label>
+          비밀번호
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="비밀번호" required />
+        </label>
+        {message && <p className="auth-message">{message}</p>}
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose}>취소</button>
+          <button className="danger-button solid" type="submit" disabled={loading}>
+            {loading ? <Loader2 className="spin" size={17} /> : <Trash2 size={17} />}
+            삭제
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
