@@ -21,7 +21,12 @@ import {
 import { supabase, isSupabaseReady } from './supabase';
 import './styles.css';
 
-const partners = ['나', '여자친구'];
+const partners = ['인웅', '운정'];
+const ownerAliases = {
+  나: '인웅',
+  여자친구: '운정',
+};
+
 const defaultCategories = [
   'CMA',
   'ISA',
@@ -50,31 +55,31 @@ const sampleSnapshots = [
   {
     month: '2026-03',
     rows: [
-      { owner: '나', category: 'CMA', amount: 3200000 },
-      { owner: '나', category: 'ISA', amount: 5100000 },
-      { owner: '나', category: '주택청약', amount: 2600000 },
-      { owner: '나', category: '해외주식', amount: 8200000 },
-      { owner: '나', category: '현금자산', amount: 1400000 },
-      { owner: '여자친구', category: 'CMA', amount: 2800000 },
-      { owner: '여자친구', category: '청년도약계좌', amount: 4400000 },
-      { owner: '여자친구', category: '연금저축펀드', amount: 3500000 },
-      { owner: '여자친구', category: '전세금', amount: 20000000 },
-      { owner: '여자친구', category: '현금자산', amount: 900000 },
+      { owner: '인웅', category: 'CMA', amount: 3200000 },
+      { owner: '인웅', category: 'ISA', amount: 5100000 },
+      { owner: '인웅', category: '주택청약', amount: 2600000 },
+      { owner: '인웅', category: '해외주식', amount: 8200000 },
+      { owner: '인웅', category: '현금자산', amount: 1400000 },
+      { owner: '운정', category: 'CMA', amount: 2800000 },
+      { owner: '운정', category: '청년도약계좌', amount: 4400000 },
+      { owner: '운정', category: '연금저축펀드', amount: 3500000 },
+      { owner: '운정', category: '전세금', amount: 20000000 },
+      { owner: '운정', category: '현금자산', amount: 900000 },
     ],
   },
   {
     month: '2026-04',
     rows: [
-      { owner: '나', category: 'CMA', amount: 3900000 },
-      { owner: '나', category: 'ISA', amount: 5600000 },
-      { owner: '나', category: '주택청약', amount: 2700000 },
-      { owner: '나', category: '해외주식', amount: 9000000 },
-      { owner: '나', category: '현금자산', amount: 1600000 },
-      { owner: '여자친구', category: 'CMA', amount: 3400000 },
-      { owner: '여자친구', category: '청년도약계좌', amount: 4900000 },
-      { owner: '여자친구', category: '연금저축펀드', amount: 3800000 },
-      { owner: '여자친구', category: '전세금', amount: 20000000 },
-      { owner: '여자친구', category: '현금자산', amount: 1300000 },
+      { owner: '인웅', category: 'CMA', amount: 3900000 },
+      { owner: '인웅', category: 'ISA', amount: 5600000 },
+      { owner: '인웅', category: '주택청약', amount: 2700000 },
+      { owner: '인웅', category: '해외주식', amount: 9000000 },
+      { owner: '인웅', category: '현금자산', amount: 1600000 },
+      { owner: '운정', category: 'CMA', amount: 3400000 },
+      { owner: '운정', category: '청년도약계좌', amount: 4900000 },
+      { owner: '운정', category: '연금저축펀드', amount: 3800000 },
+      { owner: '운정', category: '전세금', amount: 20000000 },
+      { owner: '운정', category: '현금자산', amount: 1300000 },
     ],
   },
 ];
@@ -94,6 +99,17 @@ function currentMonth() {
 function normalizeAmount(value) {
   const numeric = Number(String(value).replaceAll(',', ''));
   return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function normalizeOwner(owner) {
+  return ownerAliases[owner] || owner;
+}
+
+function normalizeRows(rows) {
+  return rows.map((row) => ({
+    ...row,
+    owner: normalizeOwner(row.owner),
+  }));
 }
 
 function App() {
@@ -137,8 +153,9 @@ function App() {
     const byOwner = partners.reduce((acc, owner) => ({ ...acc, [owner]: 0 }), {});
     const byCategory = {};
     rows.forEach((row) => {
+      const owner = normalizeOwner(row.owner);
       const amount = normalizeAmount(row.amount);
-      byOwner[row.owner] += amount;
+      byOwner[owner] = (byOwner[owner] || 0) + amount;
       byCategory[row.category] = (byCategory[row.category] || 0) + amount;
     });
     const combined = Object.values(byOwner).reduce((sum, value) => sum + value, 0);
@@ -167,7 +184,7 @@ function App() {
     try {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length) {
-        setSnapshots(parsed);
+        setSnapshots(parsed.map((snapshot) => ({ ...snapshot, rows: normalizeRows(snapshot.rows || []) })));
       }
     } catch {
       localStorage.removeItem(storageKey);
@@ -231,7 +248,7 @@ function App() {
 
     const loaded = data.map((item) => ({
       month: item.month,
-      rows: item.rows || [],
+      rows: normalizeRows(item.rows || []),
     }));
     setSnapshots(loaded.length ? loaded : sampleSnapshots);
     const current = loaded.find((item) => item.month === month);
@@ -239,7 +256,7 @@ function App() {
       setRows(
         current.rows.map((row) => ({
           id: crypto.randomUUID(),
-          owner: row.owner,
+          owner: normalizeOwner(row.owner),
           category: row.category,
           amount: row.amount,
           memo: row.memo || '',
@@ -251,7 +268,7 @@ function App() {
   }
 
   async function saveSnapshot() {
-    const cleanRows = rows.map(({ owner, category, amount, memo }) => ({
+    const cleanRows = normalizeRows(rows).map(({ owner, category, amount, memo }) => ({
       owner,
       category,
       amount: normalizeAmount(amount),
@@ -292,7 +309,7 @@ function App() {
   function applySnapshot(snapshot) {
     setMonth(snapshot.month);
     setRows(
-      snapshot.rows.map((row) => ({
+      normalizeRows(snapshot.rows).map((row) => ({
         id: crypto.randomUUID(),
         owner: row.owner,
         category: row.category,
@@ -327,9 +344,9 @@ function App() {
       <section className="topbar">
         <div>
           <p className="eyebrow">
-            <Sparkles size={15} /> 매달 10일 자산 공유
+            <Sparkles size={15} /> Inwoong & Woonjung Asset Room
           </p>
-          <h1>둘이 모은 돈을 한눈에 정리하는 월간 자산 보드</h1>
+          <h1>인웅과 운정의 자산 흐름을 조용히 쌓아가는 공간</h1>
         </div>
         <div className="top-actions">
           <div className="month-control">
@@ -348,15 +365,15 @@ function App() {
       <section className="summary-grid" aria-label="자산 요약">
         <SummaryCard
           icon={<CircleDollarSign />}
-          label="현재 합산"
+          label="함께 쌓은 자산"
           value={formatWon(totals.combined)}
           tone="strong"
         />
-        <SummaryCard icon={<Users />} label="내 자산" value={formatWon(totals.byOwner['나'])} />
+        <SummaryCard icon={<Users />} label="인웅 자산" value={formatWon(totals.byOwner['인웅'])} />
         <SummaryCard
           icon={<WalletCards />}
-          label="여자친구 자산"
-          value={formatWon(totals.byOwner['여자친구'])}
+          label="운정 자산"
+          value={formatWon(totals.byOwner['운정'])}
         />
         <SummaryCard
           icon={monthlyGrowth >= 0 ? <ArrowUpRight /> : <ArrowDownRight />}
@@ -397,7 +414,7 @@ function App() {
               <AssetColumn
                 key={owner}
                 owner={owner}
-                rows={rows.filter((row) => row.owner === owner)}
+                rows={rows.filter((row) => normalizeOwner(row.owner) === owner)}
                 onUpdate={updateRow}
                 onRemove={removeRow}
                 onAdd={() => addManualRow(owner)}
@@ -476,7 +493,7 @@ function AuthScreen() {
     });
 
     if (error) {
-      setMessage('로그인에 실패했습니다. Supabase Auth에 등록된 계정인지 확인해주세요.');
+      setMessage('로그인에 실패했습니다. 이메일과 비밀번호를 다시 확인해주세요.');
     }
     setLoading(false);
   }
@@ -484,11 +501,15 @@ function AuthScreen() {
   return (
     <main className="app-shell auth-layout">
       <form className="auth-card" onSubmit={signIn}>
-        <div className="auth-icon">
-          <Lock size={25} />
+        <div className="auth-topline">
+          <div className="auth-icon">
+            <Lock size={24} />
+          </div>
+          <span>IW WJ</span>
         </div>
-        <p className="eyebrow">Private Asset Board</p>
-        <h1>로그인 후 자산 보드를 열 수 있습니다.</h1>
+        <p className="eyebrow">Private Ledger</p>
+        <h1>우리의 숫자가 조용히 쌓이는 곳</h1>
+        <p className="auth-copy">인웅과 운정만 열 수 있는 월간 자산 기록실입니다.</p>
         <label>
           이메일
           <span>
@@ -515,9 +536,9 @@ function AuthScreen() {
             />
           </span>
         </label>
-        <button className="primary-button" type="submit" disabled={loading}>
+        <button className="primary-button auth-submit" type="submit" disabled={loading}>
           {loading ? <Loader2 className="spin" size={17} /> : <Lock size={17} />}
-          로그인
+          기록실 열기
         </button>
         {message && <p className="auth-message">{message}</p>}
       </form>
