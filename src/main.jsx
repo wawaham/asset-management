@@ -821,10 +821,10 @@ function AuthScreen() {
           </div>
           <span>IW UJ</span>
         </div>
-        <p className="eyebrow">
-          <Home size={15} /> 내 집 마련
-        </p>
-        <h1>우리집 마련</h1>
+        <h1 className="auth-title">
+          <Home className="auth-title-icon" size={42} />
+          우리집 마련
+        </h1>
         <p className="auth-copy">등록된 계정으로 월별 자산 현황을 확인하세요.</p>
         <label>
           이메일

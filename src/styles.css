@@ -1158,6 +1158,21 @@ h2 {
   line-height: 1.04;
 }
 
+.auth-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-title-icon {
+  flex: 0 0 auto;
+  padding: 7px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #236e69, #d25f50);
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(35, 110, 105, 0.2);
+}
+
 .auth-card label {
   display: grid;
   gap: 8px;
