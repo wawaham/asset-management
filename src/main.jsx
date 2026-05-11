@@ -816,9 +816,6 @@ function AuthScreen() {
     <main className="app-shell auth-layout">
       <form className="auth-card" onSubmit={signIn}>
         <div className="auth-topline">
-          <div className="auth-icon">
-            <Lock size={24} />
-          </div>
           <span>IW UJ</span>
         </div>
         <h1 className="auth-title">
