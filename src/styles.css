@@ -83,7 +83,8 @@ h2 {
   font-size: 24px;
 }
 
-.month-control {
+.month-control,
+.month-trigger {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -93,6 +94,81 @@ h2 {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.78);
   box-shadow: 0 12px 28px rgba(30, 44, 34, 0.08);
+}
+
+.month-picker {
+  position: relative;
+}
+
+.month-trigger {
+  justify-content: flex-start;
+  color: #18201b;
+  font-weight: 900;
+}
+
+.month-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  padding: 14px;
+  border: 1px solid rgba(24, 32, 27, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 44px rgba(30, 44, 34, 0.14);
+}
+
+.month-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.month-popover-head button,
+.month-grid button,
+.text-button {
+  border: 1px solid rgba(24, 32, 27, 0.1);
+  border-radius: 8px;
+  background: #fbfcf8;
+  color: #18201b;
+}
+
+.month-popover-head button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.month-grid button {
+  position: relative;
+  height: 38px;
+  font-weight: 850;
+}
+
+.month-grid button.active {
+  border-color: #143f3d;
+  background: #143f3d;
+  color: #ffffff;
+}
+
+.month-grid button.has-data::after {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #c5453f;
+  content: "";
 }
 
 .top-actions {
@@ -320,6 +396,15 @@ h2 {
   color: #18201b;
 }
 
+.icon-button:hover,
+.delete-button:hover,
+.text-button:hover,
+.month-trigger:hover,
+.month-grid button:hover,
+.month-popover-head button:hover {
+  border-color: rgba(35, 110, 105, 0.34);
+}
+
 .delete-button {
   width: 34px;
   height: 34px;
@@ -368,10 +453,28 @@ h2 {
   margin-top: 24px;
 }
 
+.side-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .side-section-title {
   margin: 0 0 2px;
   color: #111914;
   font-size: 17px;
+}
+
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  color: #236e69;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .bar-row {
@@ -433,12 +536,17 @@ h2 {
 }
 
 .trend-card {
+  position: relative;
   display: grid;
   gap: 12px;
   padding: 14px;
   border: 1px solid rgba(24, 32, 27, 0.08);
   border-radius: 8px;
   background: #fbfcf8;
+}
+
+.trend-card.large {
+  padding: 18px;
 }
 
 .trend-card svg {
@@ -482,6 +590,12 @@ h2 {
 .trend-card .dot {
   fill: #ffffff;
   stroke-width: 2;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.trend-card .dot:hover {
+  stroke-width: 3;
 }
 
 .trend-legend {
@@ -516,6 +630,80 @@ h2 {
 
 .trend-legend .woonjung {
   background: #236e69;
+}
+
+.chart-tooltip {
+  position: absolute;
+  z-index: 2;
+  min-width: 150px;
+  padding: 9px 10px;
+  border: 1px solid rgba(24, 32, 27, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 34px rgba(30, 44, 34, 0.14);
+  color: #18201b;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 10px));
+}
+
+.chart-tooltip span,
+.chart-tooltip strong {
+  display: block;
+}
+
+.chart-tooltip span {
+  margin-bottom: 3px;
+  color: #526055;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.chart-tooltip strong {
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(17, 25, 20, 0.36);
+  backdrop-filter: blur(8px);
+}
+
+.modal-panel {
+  width: min(620px, 100%);
+  max-height: min(760px, 86vh);
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid rgba(24, 32, 27, 0.1);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 28px 80px rgba(10, 18, 13, 0.22);
+}
+
+.modal-panel.wide {
+  width: min(980px, 100%);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.modal-head h2 {
+  font-size: 22px;
+}
+
+.category-modal-list {
+  display: grid;
+  gap: 15px;
 }
 
 .auth-layout {
@@ -671,6 +859,12 @@ h2 {
   .top-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .month-popover {
+    right: auto;
+    left: 0;
+    width: min(280px, calc(100vw - 36px));
   }
 
   .summary-grid,

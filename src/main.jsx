@@ -4,19 +4,24 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   CircleDollarSign,
   Database,
+  Eye,
   LineChart,
   Loader2,
   Lock,
   LogOut,
   Mail,
+  Maximize2,
   Plus,
   Save,
   Sparkles,
   Trash2,
   Users,
   WalletCards,
+  X,
 } from 'lucide-react';
 import { supabase, isSupabaseReady } from './supabase';
 import './styles.css';
@@ -103,14 +108,8 @@ const sampleSnapshots = [
       { owner: '운정', category: 'ISA', amount: 1800000 },
     ],
   },
-  {
-    month: '2026-04',
-    rows: aprilRows,
-  },
-  {
-    month: '2026-05',
-    rows: mayRows,
-  },
+  { month: '2026-04', rows: aprilRows },
+  { month: '2026-05', rows: mayRows },
 ];
 
 function formatWon(value) {
@@ -119,10 +118,6 @@ function formatWon(value) {
     currency: 'KRW',
     maximumFractionDigits: 0,
   }).format(Math.round(value || 0));
-}
-
-function currentMonth() {
-  return new Date().toISOString().slice(0, 7);
 }
 
 function normalizeAmount(value) {
@@ -135,9 +130,7 @@ function formatAmountInput(value) {
   if (!rawValue) return '';
   const numeric = Number(rawValue);
   if (!Number.isFinite(numeric)) return String(value ?? '');
-  return new Intl.NumberFormat('ko-KR', {
-    maximumFractionDigits: 0,
-  }).format(numeric);
+  return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(numeric);
 }
 
 function normalizeOwner(owner) {
@@ -145,10 +138,7 @@ function normalizeOwner(owner) {
 }
 
 function normalizeRows(rows) {
-  return rows.map((row) => ({
-    ...row,
-    owner: normalizeOwner(row.owner),
-  }));
+  return rows.map((row) => ({ ...row, owner: normalizeOwner(row.owner) }));
 }
 
 function rowsWithIds(rows) {
@@ -189,6 +179,8 @@ function App() {
   const [newCategory, setNewCategory] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [trendModalOpen, setTrendModalOpen] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseReady) {
@@ -235,11 +227,7 @@ function App() {
     return [...snapshots].reverse().find((snapshot) => snapshot.month < month);
   }, [month, snapshots]);
 
-  const previousTotal = useMemo(() => {
-    if (!previousSnapshot) return 0;
-    return snapshotTotal(previousSnapshot);
-  }, [previousSnapshot]);
-
+  const previousTotal = useMemo(() => (previousSnapshot ? snapshotTotal(previousSnapshot) : 0), [previousSnapshot]);
   const monthlyGrowth = totals.combined - previousTotal;
   const categoryEntries = Object.entries(totals.byCategory)
     .sort(([, a], [, b]) => b - a)
@@ -261,9 +249,7 @@ function App() {
   }
 
   function updateRow(id, key, value) {
-    setRows((current) =>
-      current.map((row) => (row.id === id ? { ...row, [key]: value } : row)),
-    );
+    setRows((current) => current.map((row) => (row.id === id ? { ...row, [key]: value } : row)));
   }
 
   function addCategory() {
@@ -315,17 +301,10 @@ function App() {
       return;
     }
 
-    const loaded = mergeSeedSnapshots(
-      data.map((item) => ({
-        month: item.month,
-        rows: item.rows || [],
-      })),
-    );
+    const loaded = mergeSeedSnapshots(data.map((item) => ({ month: item.month, rows: item.rows || [] })));
     setSnapshots(loaded.length ? loaded : sampleSnapshots);
     const current = loaded.find((item) => item.month === month);
-    if (current) {
-      setRows(rowsWithIds(current.rows));
-    }
+    if (current) setRows(rowsWithIds(current.rows));
     setStatus('Supabase 기록을 불러왔습니다.');
     setLoading(false);
   }
@@ -340,9 +319,7 @@ function App() {
 
     setSnapshots((current) => {
       const next = current.filter((snapshot) => snapshot.month !== month);
-      const sorted = [...next, { month, rows: cleanRows }].sort((a, b) =>
-        a.month.localeCompare(b.month),
-      );
+      const sorted = [...next, { month, rows: cleanRows }].sort((a, b) => a.month.localeCompare(b.month));
       localStorage.setItem(storageKey, JSON.stringify(sorted));
       return sorted;
     });
@@ -404,10 +381,7 @@ function App() {
           <h1>월별 자산 현황</h1>
         </div>
         <div className="top-actions">
-          <div className="month-control">
-            <CalendarDays size={18} />
-            <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
-          </div>
+          <MonthPicker value={month} snapshots={snapshots} onChange={setMonth} />
           {session && (
             <button className="secondary-button" onClick={signOut}>
               <LogOut size={17} />
@@ -418,13 +392,7 @@ function App() {
       </section>
 
       <section className="summary-grid" aria-label="자산 요약">
-        <SummaryCard
-          icon={<CircleDollarSign />}
-          label="합산 자산"
-          value={totals.combined}
-          ticker
-          tone="strong"
-        />
+        <SummaryCard icon={<CircleDollarSign />} label="합산 자산" value={totals.combined} ticker tone="strong" />
         <SummaryCard icon={<Users />} label="인웅 자산" value={totals.byOwner['인웅']} ticker />
         <SummaryCard icon={<WalletCards />} label="운정 자산" value={totals.byOwner['운정']} ticker />
         <SummaryCard
@@ -490,26 +458,26 @@ function App() {
               <p className="section-kicker">Trend</p>
               <h2>월별 자산 추이</h2>
             </div>
-            <LineChart size={22} />
+            <button className="icon-button" onClick={() => setTrendModalOpen(true)} title="월별 자산 추이 크게 보기">
+              <Maximize2 size={18} />
+            </button>
           </div>
 
           <MonthlyTrendChart snapshots={snapshots} />
 
           <div className="bar-list">
-            <h3 className="side-section-title">항목별 비중</h3>
+            <div className="side-section-head">
+              <h3 className="side-section-title">항목별 비중</h3>
+              <button className="text-button" onClick={() => setCategoryModalOpen(true)}>
+                <Eye size={15} />
+                전체보기
+              </button>
+            </div>
             {categoryEntries.length === 0 ? (
               <p className="empty">금액을 입력하면 항목별 비중이 표시됩니다.</p>
             ) : (
-              categoryEntries.map(([category, amount]) => (
-                <div className="bar-row" key={category}>
-                  <div className="bar-meta">
-                    <span>{category}</span>
-                    <strong>{formatWon(amount)}</strong>
-                  </div>
-                  <div className="bar-track">
-                    <div style={{ width: `${Math.max(6, (amount / maxCategory) * 100)}%` }} />
-                  </div>
-                </div>
+              categoryEntries.slice(0, 6).map(([category, amount]) => (
+                <CategoryBar key={category} category={category} amount={amount} maxAmount={maxCategory} />
               ))
             )}
           </div>
@@ -528,7 +496,71 @@ function App() {
           </div>
         </aside>
       </section>
+
+      {categoryModalOpen && (
+        <Modal title={`${month} 항목별 비중`} onClose={() => setCategoryModalOpen(false)}>
+          <div className="category-modal-list">
+            {categoryEntries.map(([category, amount]) => (
+              <CategoryBar key={category} category={category} amount={amount} maxAmount={maxCategory} showPercent total={totals.combined} />
+            ))}
+          </div>
+        </Modal>
+      )}
+
+      {trendModalOpen && (
+        <Modal title="월별 자산 추이" size="wide" onClose={() => setTrendModalOpen(false)}>
+          <MonthlyTrendChart snapshots={snapshots} large />
+        </Modal>
+      )}
     </main>
+  );
+}
+
+function MonthPicker({ value, snapshots, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [year, setYear] = useState(Number(value.slice(0, 4)));
+  const availableMonths = new Set(snapshots.map((snapshot) => snapshot.month));
+  const monthLabel = value.replace('-', '.');
+
+  function selectMonth(monthIndex) {
+    onChange(`${year}-${String(monthIndex + 1).padStart(2, '0')}`);
+    setOpen(false);
+  }
+
+  return (
+    <div className="month-picker">
+      <button className="month-trigger" onClick={() => setOpen((current) => !current)}>
+        <CalendarDays size={18} />
+        <span>{monthLabel}</span>
+      </button>
+      {open && (
+        <div className="month-popover">
+          <div className="month-popover-head">
+            <button onClick={() => setYear((current) => current - 1)} title="이전 연도">
+              <ChevronLeft size={16} />
+            </button>
+            <strong>{year}</strong>
+            <button onClick={() => setYear((current) => current + 1)} title="다음 연도">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          <div className="month-grid">
+            {Array.from({ length: 12 }, (_, index) => {
+              const option = `${year}-${String(index + 1).padStart(2, '0')}`;
+              return (
+                <button
+                  key={option}
+                  className={`${option === value ? 'active' : ''} ${availableMonths.has(option) ? 'has-data' : ''}`}
+                  onClick={() => selectMonth(index)}
+                >
+                  {index + 1}월
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -570,26 +602,14 @@ function AuthScreen() {
           이메일
           <span>
             <Mail size={17} />
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              required
-            />
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required />
           </span>
         </label>
         <label>
           비밀번호
           <span>
             <Lock size={17} />
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Supabase Auth 비밀번호"
-              required
-            />
+            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Supabase Auth 비밀번호" required />
           </span>
         </label>
         <button className="primary-button auth-submit" type="submit" disabled={loading}>
@@ -627,9 +647,7 @@ function AnimatedWon({ value }) {
       const progress = Math.min((timestamp - startTime) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
       setDisplayValue(start + (end - start) * eased);
-      if (progress < 1) {
-        frameId = requestAnimationFrame(tick);
-      }
+      if (progress < 1) frameId = requestAnimationFrame(tick);
     }
 
     frameId = requestAnimationFrame(tick);
@@ -639,7 +657,8 @@ function AnimatedWon({ value }) {
   return <span className="ticker-number">{formatWon(displayValue)}</span>;
 }
 
-function MonthlyTrendChart({ snapshots }) {
+function MonthlyTrendChart({ snapshots, large = false }) {
+  const [hover, setHover] = useState(null);
   const data = snapshots
     .map((snapshot) => ({
       month: snapshot.month,
@@ -650,46 +669,99 @@ function MonthlyTrendChart({ snapshots }) {
     .sort((a, b) => a.month.localeCompare(b.month));
 
   const maxValue = Math.max(...data.flatMap((item) => [item.combined, item.inwoong, item.woonjung]), 1);
-  const width = 320;
-  const height = 178;
-  const padding = 22;
+  const width = large ? 760 : 320;
+  const height = large ? 340 : 178;
+  const padding = large ? 44 : 22;
   const xStep = data.length > 1 ? (width - padding * 2) / (data.length - 1) : 0;
+  const series = [
+    { key: 'combined', label: '합산' },
+    { key: 'inwoong', label: '인웅' },
+    { key: 'woonjung', label: '운정' },
+  ];
 
   function point(item, index, key) {
     const x = padding + index * xStep;
     const y = height - padding - (item[key] / maxValue) * (height - padding * 2);
-    return `${x},${y}`;
+    return { x, y };
   }
 
   function polyline(key) {
-    return data.map((item, index) => point(item, index, key)).join(' ');
+    return data.map((item, index) => {
+      const { x, y } = point(item, index, key);
+      return `${x},${y}`;
+    }).join(' ');
   }
 
-  if (!data.length) {
-    return <p className="empty">저장된 월이 생기면 추이가 표시됩니다.</p>;
-  }
+  if (!data.length) return <p className="empty">저장된 월이 생기면 추이가 표시됩니다.</p>;
 
   return (
-    <div className="trend-card">
+    <div className={`trend-card ${large ? 'large' : ''}`} onMouseLeave={() => setHover(null)}>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="월별 자산 추이 차트">
         <line x1={padding} x2={width - padding} y1={height - padding} y2={height - padding} />
-        <polyline className="line combined" points={polyline('combined')} />
-        <polyline className="line inwoong" points={polyline('inwoong')} />
-        <polyline className="line woonjung" points={polyline('woonjung')} />
+        {series.map(({ key }) => (
+          <polyline key={key} className={`line ${key}`} points={polyline(key)} />
+        ))}
         {data.map((item, index) => (
           <g key={item.month}>
-            <circle className="dot combined" cx={point(item, index, 'combined').split(',')[0]} cy={point(item, index, 'combined').split(',')[1]} r="3.5" />
-            <text x={padding + index * xStep} y={height - 5}>
-              {item.month.slice(5)}
-            </text>
+            {series.map(({ key, label }) => {
+              const { x, y } = point(item, index, key);
+              return (
+                <circle
+                  key={key}
+                  className={`dot ${key}`}
+                  cx={x}
+                  cy={y}
+                  r={large ? 5 : 3.5}
+                  onMouseEnter={() => setHover({ x, y, month: item.month, label, value: item[key] })}
+                />
+              );
+            })}
+            <text x={padding + index * xStep} y={height - 5}>{item.month.slice(5)}</text>
           </g>
         ))}
       </svg>
+      {hover && (
+        <div className="chart-tooltip" style={{ left: `${(hover.x / width) * 100}%`, top: `${(hover.y / height) * 100}%` }}>
+          <span>{hover.month} · {hover.label}</span>
+          <strong>{formatWon(hover.value)}</strong>
+        </div>
+      )}
       <div className="trend-legend">
         <span><i className="combined" />합산</span>
         <span><i className="inwoong" />인웅</span>
         <span><i className="woonjung" />운정</span>
       </div>
+    </div>
+  );
+}
+
+function CategoryBar({ category, amount, maxAmount, total, showPercent = false }) {
+  const percent = total ? (amount / total) * 100 : 0;
+  return (
+    <div className="bar-row">
+      <div className="bar-meta">
+        <span>{category}</span>
+        <strong>{formatWon(amount)}{showPercent ? ` · ${percent.toFixed(1)}%` : ''}</strong>
+      </div>
+      <div className="bar-track">
+        <div style={{ width: `${Math.max(6, (amount / maxAmount) * 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function Modal({ title, children, onClose, size = 'normal' }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className={`modal-panel ${size}`} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modal-head">
+          <h2>{title}</h2>
+          <button className="icon-button" onClick={onClose} title="닫기">
+            <X size={18} />
+          </button>
+        </div>
+        {children}
+      </section>
     </div>
   );
 }
@@ -712,12 +784,7 @@ function AssetColumn({ owner, rows, onUpdate, onRemove, onAdd }) {
       <div className="asset-rows">
         {rows.map((row) => (
           <div className="asset-row" key={row.id}>
-            <input
-              className="category-input"
-              value={row.category}
-              onChange={(event) => onUpdate(row.id, 'category', event.target.value)}
-              aria-label="항목명"
-            />
+            <input className="category-input" value={row.category} onChange={(event) => onUpdate(row.id, 'category', event.target.value)} aria-label="항목명" />
             <input
               className="amount-input"
               inputMode="numeric"
@@ -726,13 +793,7 @@ function AssetColumn({ owner, rows, onUpdate, onRemove, onAdd }) {
               placeholder="0"
               aria-label="금액"
             />
-            <input
-              className="memo-input"
-              value={row.memo}
-              onChange={(event) => onUpdate(row.id, 'memo', event.target.value)}
-              placeholder="메모"
-              aria-label="메모"
-            />
+            <input className="memo-input" value={row.memo} onChange={(event) => onUpdate(row.id, 'memo', event.target.value)} placeholder="메모" aria-label="메모" />
             <button className="delete-button" onClick={() => onRemove(row.id)} title="삭제">
               <Trash2 size={16} />
             </button>
