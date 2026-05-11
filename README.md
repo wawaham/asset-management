@@ -41,9 +41,4 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 `.github/workflows/deploy.yml`이 포함되어 있습니다. GitHub 레포에 `main` 브랜치로 푸시하면 자동으로 빌드하고 GitHub Pages에 배포합니다.
 
-GitHub 레포 Settings에서 Pages Source가 `GitHub Actions`로 설정되어 있어야 합니다. Supabase를 연결해서 배포하려면 레포 Secrets에 아래 값을 추가하세요.
-
-```bash
-VITE_SUPABASE_URL
-VITE_SUPABASE_ANON_KEY
-```
+GitHub 레포 Settings에서 Pages Source가 `GitHub Actions`로 설정되어 있어야 합니다. 이 프로젝트는 `.env.production`에 Supabase 공개 클라이언트 값을 포함해 배포 시 바로 연결됩니다.
