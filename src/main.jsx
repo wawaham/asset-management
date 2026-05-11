@@ -9,6 +9,7 @@ import {
   CircleDollarSign,
   Database,
   Eye,
+  Home,
   LineChart,
   Loader2,
   Lock,
@@ -345,7 +346,6 @@ function App() {
       amount: normalizeAmount(amount),
       memo,
     }));
-    const isFirstSaveForMonth = !snapshots.some((snapshot) => snapshot.month === month);
     const celebrationPayload = {
       month,
       total: totals.combined,
@@ -363,7 +363,7 @@ function App() {
 
     if (!isSupabaseReady) {
       setStatus('Supabase 환경값이 없어서 브라우저에만 임시 저장했습니다.');
-      if (isFirstSaveForMonth) setCelebration(celebrationPayload);
+      setCelebration(celebrationPayload);
       return;
     }
 
@@ -385,7 +385,7 @@ function App() {
     } else {
       await writeActivityLog('save', month, totals.combined);
       setStatus(`${month} 자산 기록을 저장했습니다.`);
-      if (isFirstSaveForMonth) setCelebration(celebrationPayload);
+      setCelebration(celebrationPayload);
     }
     setLoading(false);
   }
@@ -715,9 +715,11 @@ function AuthScreen() {
           <div className="auth-icon">
             <Lock size={24} />
           </div>
-          <span>IW WJ</span>
+          <span>IW UJ</span>
         </div>
-        <p className="eyebrow">Asset Management</p>
+        <p className="eyebrow">
+          <Home size={15} /> 내 집 마련
+        </p>
         <h1>로그인</h1>
         <p className="auth-copy">등록된 계정으로 월별 자산 현황을 확인하세요.</p>
         <label>
@@ -904,7 +906,7 @@ function CelebrationModal({ data, onClose }) {
   const isGrowth = data.growth > 0;
 
   return (
-    <Modal title={`${data.month} 첫 저장 완료`} size="celebration" onClose={onClose}>
+    <Modal title={`${data.month} 저장 완료`} size="celebration" onClose={onClose}>
       <div className={`celebration-card ${isGrowth ? 'growth' : 'encourage'}`}>
         {isGrowth ? <ConfettiBurst /> : <ClappingHands />}
         <p className="celebration-kicker">
