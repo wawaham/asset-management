@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   ArrowDownRight,
@@ -530,8 +530,22 @@ function App() {
 function MonthPicker({ value, snapshots, onChange }) {
   const [open, setOpen] = useState(false);
   const [year, setYear] = useState(Number(value.slice(0, 4)));
+  const pickerRef = useRef(null);
   const availableMonths = new Set(snapshots.map((snapshot) => snapshot.month));
   const monthLabel = value.replace('-', '.');
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function closeOnOutsideClick(event) {
+      if (pickerRef.current && !pickerRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [open]);
 
   function selectMonth(monthIndex) {
     onChange(`${year}-${String(monthIndex + 1).padStart(2, '0')}`);
@@ -539,7 +553,7 @@ function MonthPicker({ value, snapshots, onChange }) {
   }
 
   return (
-    <div className="month-picker">
+    <div className="month-picker" ref={pickerRef}>
       <button className="month-trigger" onClick={() => setOpen((current) => !current)}>
         <CalendarDays size={18} />
         <span>{monthLabel}</span>
