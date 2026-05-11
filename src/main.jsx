@@ -59,6 +59,22 @@ const aprilRows = [
   { owner: '운정', category: 'ISA', amount: 200 * tenThousand },
 ];
 
+const mayRows = [
+  { owner: '인웅', category: '청년도약계좌', amount: 0.084 * hundredMillion },
+  { owner: '인웅', category: '주택청약', amount: 0.178 * hundredMillion },
+  { owner: '인웅', category: 'ISA', amount: 1.13 * hundredMillion },
+  { owner: '인웅', category: 'NH CMA', amount: 0.469 * hundredMillion },
+  { owner: '인웅', category: '미래에셋 CMA', amount: 0.1 * hundredMillion },
+  { owner: '인웅', category: '전세보증금', amount: 0.98 * hundredMillion },
+  { owner: '인웅', category: '코인(이더리움)', amount: 0.127 * hundredMillion },
+  { owner: '인웅', category: '연금저축펀드', amount: 0.059 * hundredMillion },
+  { owner: '인웅', category: '아빠 증여', amount: 0.5 * hundredMillion },
+  { owner: '운정', category: '주택청약', amount: 1080 * tenThousand },
+  { owner: '운정', category: '청년도약계좌', amount: 950 * tenThousand },
+  { owner: '운정', category: '국장 CMA', amount: 513 * tenThousand },
+  { owner: '운정', category: 'ISA', amount: 218 * tenThousand },
+];
+
 const initialRows = partners.flatMap((owner) =>
   defaultCategories.map((category) => ({
     id: crypto.randomUUID(),
@@ -90,6 +106,10 @@ const sampleSnapshots = [
   {
     month: '2026-04',
     rows: aprilRows,
+  },
+  {
+    month: '2026-05',
+    rows: mayRows,
   },
 ];
 
@@ -153,15 +173,18 @@ function mergeSeedSnapshots(snapshots) {
     ...snapshot,
     rows: normalizeRows(snapshot.rows || []),
   }));
-  const withoutApril = normalized.filter((snapshot) => snapshot.month !== '2026-04');
-  return [...withoutApril, sampleSnapshots[1]].sort((a, b) => a.month.localeCompare(b.month));
+  const seedMonths = new Set(['2026-04', '2026-05']);
+  const withoutSeedMonths = normalized.filter((snapshot) => !seedMonths.has(snapshot.month));
+  return [...withoutSeedMonths, sampleSnapshots[1], sampleSnapshots[2]].sort((a, b) =>
+    a.month.localeCompare(b.month),
+  );
 }
 
 function App() {
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(!isSupabaseReady);
-  const [month, setMonth] = useState('2026-04');
-  const [rows, setRows] = useState(rowsWithIds(aprilRows));
+  const [month, setMonth] = useState('2026-05');
+  const [rows, setRows] = useState(rowsWithIds(mayRows));
   const [snapshots, setSnapshots] = useState(sampleSnapshots);
   const [newCategory, setNewCategory] = useState('');
   const [status, setStatus] = useState('');
