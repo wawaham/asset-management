@@ -120,6 +120,17 @@ function formatWon(value) {
   }).format(Math.round(value || 0));
 }
 
+function formatAxisAmount(value) {
+  if (value >= 100000000) {
+    const amount = value / 100000000;
+    return `${Number.isInteger(amount) ? amount : amount.toFixed(1)}억`;
+  }
+  if (value >= 10000) {
+    return `${Math.round(value / 10000).toLocaleString('ko-KR')}만`;
+  }
+  return Math.round(value).toLocaleString('ko-KR');
+}
+
 function normalizeAmount(value) {
   const numeric = Number(String(value).replaceAll(',', ''));
   return Number.isFinite(numeric) ? numeric : 0;
@@ -671,8 +682,11 @@ function MonthlyTrendChart({ snapshots, large = false }) {
   const maxValue = Math.max(...data.flatMap((item) => [item.combined, item.inwoong, item.woonjung]), 1);
   const width = large ? 760 : 320;
   const height = large ? 340 : 178;
-  const padding = large ? 44 : 22;
-  const xStep = data.length > 1 ? (width - padding * 2) / (data.length - 1) : 0;
+  const padding = large ? { top: 28, right: 24, bottom: 36, left: 74 } : { top: 18, right: 14, bottom: 30, left: 54 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const xStep = data.length > 1 ? plotWidth / (data.length - 1) : 0;
+  const yTicks = [1, 0.75, 0.5, 0.25, 0];
   const series = [
     { key: 'combined', label: '합산' },
     { key: 'inwoong', label: '인웅' },
@@ -680,8 +694,8 @@ function MonthlyTrendChart({ snapshots, large = false }) {
   ];
 
   function point(item, index, key) {
-    const x = padding + index * xStep;
-    const y = height - padding - (item[key] / maxValue) * (height - padding * 2);
+    const x = padding.left + index * xStep;
+    const y = padding.top + plotHeight - (item[key] / maxValue) * plotHeight;
     return { x, y };
   }
 
@@ -697,7 +711,16 @@ function MonthlyTrendChart({ snapshots, large = false }) {
   return (
     <div className={`trend-card ${large ? 'large' : ''}`} onMouseLeave={() => setHover(null)}>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="월별 자산 추이 차트">
-        <line x1={padding} x2={width - padding} y1={height - padding} y2={height - padding} />
+        {yTicks.map((ratio) => {
+          const y = padding.top + plotHeight * (1 - ratio);
+          const value = maxValue * ratio;
+          return (
+            <g className="axis-row" key={ratio}>
+              <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} />
+              <text className="axis-label" x={padding.left - 8} y={y + 4}>{formatAxisAmount(value)}</text>
+            </g>
+          );
+        })}
         {series.map(({ key }) => (
           <polyline key={key} className={`line ${key}`} points={polyline(key)} />
         ))}
@@ -716,7 +739,7 @@ function MonthlyTrendChart({ snapshots, large = false }) {
                 />
               );
             })}
-            <text x={padding + index * xStep} y={height - 5}>{item.month.slice(5)}</text>
+            <text className="month-label" x={padding.left + index * xStep} y={height - 8}>{item.month.slice(5)}</text>
           </g>
         ))}
       </svg>

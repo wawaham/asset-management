@@ -568,6 +568,26 @@ h2 {
   text-anchor: middle;
 }
 
+.trend-card .axis-row line {
+  stroke: rgba(24, 32, 27, 0.09);
+}
+
+.trend-card .axis-label {
+  fill: #7a857b;
+  font-size: 10px;
+  text-anchor: end;
+}
+
+.trend-card.large .axis-label {
+  font-size: 12px;
+}
+
+.trend-card .month-label {
+  fill: #526055;
+  font-size: 11px;
+  text-anchor: middle;
+}
+
 .trend-card .line {
   fill: none;
   stroke-linecap: round;
