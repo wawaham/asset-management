@@ -8,6 +8,9 @@ import {
   Database,
   LineChart,
   Loader2,
+  Lock,
+  LogOut,
+  Mail,
   Plus,
   Save,
   Sparkles,
@@ -30,6 +33,8 @@ const defaultCategories = [
   '코인',
   '현금자산',
 ];
+
+const storageKey = 'couple-asset-snapshots';
 
 const initialRows = partners.flatMap((owner) =>
   defaultCategories.map((category) => ({
@@ -74,8 +79,6 @@ const sampleSnapshots = [
   },
 ];
 
-const storageKey = 'couple-asset-snapshots';
-
 function formatWon(value) {
   return new Intl.NumberFormat('ko-KR', {
     style: 'currency',
@@ -94,6 +97,8 @@ function normalizeAmount(value) {
 }
 
 function App() {
+  const [session, setSession] = useState(null);
+  const [authReady, setAuthReady] = useState(!isSupabaseReady);
   const [month, setMonth] = useState(currentMonth());
   const [rows, setRows] = useState(initialRows);
   const [snapshots, setSnapshots] = useState(sampleSnapshots);
@@ -102,19 +107,31 @@ function App() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(storageKey);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length) {
-          setSnapshots(parsed);
-        }
-      } catch {
-        localStorage.removeItem(storageKey);
-      }
+    if (!isSupabaseReady) {
+      loadLocalSnapshots();
+      return;
     }
-    loadSnapshots();
+
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthReady(true);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      if (nextSession) {
+        loadSnapshots();
+      }
+    });
+
+    return () => listener.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (session || !isSupabaseReady) {
+      loadLocalSnapshots();
+    }
+  }, [session]);
 
   const totals = useMemo(() => {
     const byOwner = partners.reduce((acc, owner) => ({ ...acc, [owner]: 0 }), {});
@@ -142,6 +159,20 @@ function App() {
     .sort(([, a], [, b]) => b - a)
     .filter(([, amount]) => amount > 0);
   const maxCategory = Math.max(...categoryEntries.map(([, amount]) => amount), 1);
+
+  function loadLocalSnapshots() {
+    const stored = localStorage.getItem(storageKey);
+    if (!stored) return;
+
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length) {
+        setSnapshots(parsed);
+      }
+    } catch {
+      localStorage.removeItem(storageKey);
+    }
+  }
 
   function updateRow(id, key, value) {
     setRows((current) =>
@@ -183,7 +214,7 @@ function App() {
   }
 
   async function loadSnapshots() {
-    if (!isSupabaseReady) return;
+    if (!isSupabaseReady || !supabase.auth) return;
 
     setLoading(true);
     setStatus('Supabase에서 기록을 불러오는 중입니다.');
@@ -229,13 +260,20 @@ function App() {
 
     setSnapshots((current) => {
       const next = current.filter((snapshot) => snapshot.month !== month);
-      const sorted = [...next, { month, rows: cleanRows }].sort((a, b) => a.month.localeCompare(b.month));
+      const sorted = [...next, { month, rows: cleanRows }].sort((a, b) =>
+        a.month.localeCompare(b.month),
+      );
       localStorage.setItem(storageKey, JSON.stringify(sorted));
       return sorted;
     });
 
     if (!isSupabaseReady) {
-      setStatus('.env에 Supabase URL과 anon key를 넣으면 클라우드 저장이 켜집니다. 지금은 브라우저 화면에만 반영했어요.');
+      setStatus('Supabase 환경값이 없어서 브라우저에만 임시 저장했습니다.');
+      return;
+    }
+
+    if (!session) {
+      setStatus('로그인 후 Supabase에 저장할 수 있습니다.');
       return;
     }
 
@@ -264,16 +302,46 @@ function App() {
     );
   }
 
+  async function signOut() {
+    await supabase.auth.signOut();
+    setStatus('로그아웃되었습니다.');
+  }
+
+  if (!authReady) {
+    return (
+      <main className="app-shell auth-layout">
+        <div className="auth-card">
+          <Loader2 className="spin" size={24} />
+          <h1>보안 세션을 확인하는 중입니다.</h1>
+        </div>
+      </main>
+    );
+  }
+
+  if (isSupabaseReady && !session) {
+    return <AuthScreen />;
+  }
+
   return (
     <main className="app-shell">
       <section className="topbar">
         <div>
-          <p className="eyebrow"><Sparkles size={15} /> 매달 10일 자산 공유</p>
+          <p className="eyebrow">
+            <Sparkles size={15} /> 매달 10일 자산 공유
+          </p>
           <h1>둘이 모은 돈을 한눈에 정리하는 월간 자산 보드</h1>
         </div>
-        <div className="month-control">
-          <CalendarDays size={18} />
-          <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
+        <div className="top-actions">
+          <div className="month-control">
+            <CalendarDays size={18} />
+            <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
+          </div>
+          {session && (
+            <button className="secondary-button" onClick={signOut}>
+              <LogOut size={17} />
+              로그아웃
+            </button>
+          )}
         </div>
       </section>
 
@@ -339,7 +407,10 @@ function App() {
 
           <p className="status-line">
             <Database size={15} />
-            {status || (isSupabaseReady ? 'Supabase 연결 준비 완료' : 'Supabase 환경변수를 넣으면 저장소와 연결됩니다.')}
+            {status ||
+              (session
+                ? `${session.user.email} 계정으로 Supabase에 연결되었습니다.`
+                : 'Supabase 환경값을 넣으면 저장소와 연결됩니다.')}
           </p>
         </div>
 
@@ -384,6 +455,72 @@ function App() {
           </div>
         </aside>
       </section>
+    </main>
+  );
+}
+
+function AuthScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function signIn(event) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
+      setMessage('로그인에 실패했습니다. Supabase Auth에 등록된 계정인지 확인해주세요.');
+    }
+    setLoading(false);
+  }
+
+  return (
+    <main className="app-shell auth-layout">
+      <form className="auth-card" onSubmit={signIn}>
+        <div className="auth-icon">
+          <Lock size={25} />
+        </div>
+        <p className="eyebrow">Private Asset Board</p>
+        <h1>로그인 후 자산 보드를 열 수 있습니다.</h1>
+        <label>
+          이메일
+          <span>
+            <Mail size={17} />
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+              required
+            />
+          </span>
+        </label>
+        <label>
+          비밀번호
+          <span>
+            <Lock size={17} />
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Supabase Auth 비밀번호"
+              required
+            />
+          </span>
+        </label>
+        <button className="primary-button" type="submit" disabled={loading}>
+          {loading ? <Loader2 className="spin" size={17} /> : <Lock size={17} />}
+          로그인
+        </button>
+        {message && <p className="auth-message">{message}</p>}
+      </form>
     </main>
   );
 }

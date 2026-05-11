@@ -95,6 +95,12 @@ h2 {
   box-shadow: 0 12px 28px rgba(30, 44, 34, 0.08);
 }
 
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .month-control input {
   width: 100%;
   border: 0;
@@ -212,7 +218,8 @@ h2 {
 }
 
 .primary-button,
-.category-add button {
+.category-add button,
+.secondary-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -224,6 +231,12 @@ h2 {
   background: #18201b;
   color: #ffffff;
   font-weight: 900;
+}
+
+.secondary-button {
+  border: 1px solid rgba(24, 32, 27, 0.12);
+  background: rgba(255, 255, 255, 0.78);
+  color: #18201b;
 }
 
 .primary-button:disabled {
@@ -406,6 +419,75 @@ h2 {
   color: #526055;
 }
 
+.auth-layout {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+}
+
+.auth-card {
+  display: grid;
+  width: min(460px, 100%);
+  gap: 16px;
+  padding: 28px;
+  border: 1px solid rgba(24, 32, 27, 0.09);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 48px rgba(30, 44, 34, 0.12);
+}
+
+.auth-card h1 {
+  margin-bottom: 8px;
+  font-size: 32px;
+  line-height: 1.08;
+}
+
+.auth-card label {
+  display: grid;
+  gap: 8px;
+  color: #526055;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.auth-card label span {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(24, 32, 27, 0.1);
+  border-radius: 8px;
+  background: #fbfcf8;
+  color: #236e69;
+}
+
+.auth-card input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #18201b;
+}
+
+.auth-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(35, 110, 105, 0.12);
+  color: #236e69;
+}
+
+.auth-message {
+  margin: 0;
+  color: #9f352f;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .spin {
   animation: spin 0.8s linear infinite;
 }
@@ -436,6 +518,11 @@ h2 {
   }
 
   .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .top-actions {
     align-items: stretch;
     flex-direction: column;
   }
