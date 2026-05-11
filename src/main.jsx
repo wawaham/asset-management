@@ -192,6 +192,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [trendModalOpen, setTrendModalOpen] = useState(false);
+  const [celebration, setCelebration] = useState(null);
 
   useEffect(() => {
     if (!isSupabaseReady) {
@@ -327,6 +328,13 @@ function App() {
       amount: normalizeAmount(amount),
       memo,
     }));
+    const isFirstSaveForMonth = !snapshots.some((snapshot) => snapshot.month === month);
+    const celebrationPayload = {
+      month,
+      total: totals.combined,
+      growth: monthlyGrowth,
+      previousMonth: previousSnapshot?.month,
+    };
 
     setSnapshots((current) => {
       const next = current.filter((snapshot) => snapshot.month !== month);
@@ -337,6 +345,7 @@ function App() {
 
     if (!isSupabaseReady) {
       setStatus('Supabase 환경값이 없어서 브라우저에만 임시 저장했습니다.');
+      if (isFirstSaveForMonth) setCelebration(celebrationPayload);
       return;
     }
 
@@ -353,7 +362,12 @@ function App() {
       updated_at: new Date().toISOString(),
     });
 
-    setStatus(error ? `저장 실패: ${error.message}` : `${month} 자산 기록을 저장했습니다.`);
+    if (error) {
+      setStatus(`저장 실패: ${error.message}`);
+    } else {
+      setStatus(`${month} 자산 기록을 저장했습니다.`);
+      if (isFirstSaveForMonth) setCelebration(celebrationPayload);
+    }
     setLoading(false);
   }
 
@@ -522,6 +536,10 @@ function App() {
         <Modal title="월별 자산 추이" size="wide" onClose={() => setTrendModalOpen(false)}>
           <MonthlyTrendChart snapshots={snapshots} large />
         </Modal>
+      )}
+
+      {celebration && (
+        <CelebrationModal data={celebration} onClose={() => setCelebration(null)} />
       )}
     </main>
   );
@@ -799,6 +817,60 @@ function Modal({ title, children, onClose, size = 'normal' }) {
         </div>
         {children}
       </section>
+    </div>
+  );
+}
+
+function CelebrationModal({ data, onClose }) {
+  const isGrowth = data.growth > 0;
+
+  return (
+    <Modal title={`${data.month} 첫 저장 완료`} size="celebration" onClose={onClose}>
+      <div className={`celebration-card ${isGrowth ? 'growth' : 'encourage'}`}>
+        {isGrowth ? <ConfettiBurst /> : <ClappingHands />}
+        <p className="celebration-kicker">
+          {isGrowth ? '전월보다 자산이 늘었어요.' : '이번 달 기록도 잘 남겼어요.'}
+        </p>
+        <h3>{isGrowth ? '좋은 흐름입니다.' : '다음 달을 다시 보면 됩니다.'}</h3>
+        <div className="celebration-total">
+          <span>현재 합산 자산</span>
+          <strong><AnimatedWon value={data.total} /></strong>
+        </div>
+        <div className="celebration-delta">
+          <span>{data.previousMonth ? `${data.previousMonth} 대비` : '전월 대비'}</span>
+          <strong className={isGrowth ? 'up' : 'down'}>{formatWon(data.growth)}</strong>
+        </div>
+        <button className="primary-button" onClick={onClose}>확인</button>
+      </div>
+    </Modal>
+  );
+}
+
+function ConfettiBurst() {
+  const pieces = [
+    [-86, -52], [-72, -18], [-58, 20], [-44, -74], [-28, -38], [-18, 16],
+    [-6, -62], [10, -24], [22, 28], [36, -82], [48, -42], [62, 12],
+    [78, -56], [88, -8], [-96, 8], [-70, -86], [-36, 44], [4, -94],
+    [30, 54], [66, -88], [96, 24], [-12, 58], [52, 42], [84, -36],
+  ];
+
+  return (
+    <div className="confetti-burst" aria-hidden="true">
+      {pieces.map(([x, y], index) => (
+        <i key={index} style={{ '--i': index, '--x': `${x}px`, '--y': `${y}px`, '--r': `${index * 29}deg` }} />
+      ))}
+    </div>
+  );
+}
+
+function ClappingHands() {
+  return (
+    <div className="clapping-hands" aria-hidden="true">
+      <span className="hand left-hand" />
+      <span className="hand right-hand" />
+      <i />
+      <i />
+      <i />
     </div>
   );
 }
