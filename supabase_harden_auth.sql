@@ -32,3 +32,29 @@ on public.asset_snapshots
 for delete
 to authenticated
 using (auth.uid() is not null);
+
+create table if not exists public.asset_activity_logs (
+  id bigint generated always as identity primary key,
+  action text not null check (action in ('save', 'delete')),
+  month text not null,
+  total numeric not null default 0,
+  user_email text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.asset_activity_logs enable row level security;
+
+drop policy if exists "Allow authenticated read asset activity logs" on public.asset_activity_logs;
+drop policy if exists "Allow authenticated insert asset activity logs" on public.asset_activity_logs;
+
+create policy "Allow authenticated read asset activity logs"
+on public.asset_activity_logs
+for select
+to authenticated
+using (auth.uid() is not null);
+
+create policy "Allow authenticated insert asset activity logs"
+on public.asset_activity_logs
+for insert
+to authenticated
+with check (auth.uid() is not null);

@@ -9,6 +9,7 @@ import {
   CircleDollarSign,
   Database,
   Eye,
+  History,
   LineChart,
   Loader2,
   Lock,
@@ -210,6 +211,9 @@ function App() {
   const [trendModalOpen, setTrendModalOpen] = useState(false);
   const [celebration, setCelebration] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [logsModalOpen, setLogsModalOpen] = useState(false);
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseReady) {
@@ -383,6 +387,7 @@ function App() {
     if (error) {
       setStatus(`저장 실패: ${error.message}`);
     } else {
+      await writeActivityLog('save', month, totals.combined);
       setStatus(`${month} 자산 기록을 저장했습니다.`);
       if (isFirstSaveForMonth) setCelebration(celebrationPayload);
     }
@@ -411,10 +416,34 @@ function App() {
       return { ok: false, message: `삭제 실패: ${error.message}` };
     }
 
+    await writeActivityLog('delete', month, snapshotTotal({ rows }));
     removeSnapshotLocally(month);
     setStatus(`${month} 자산 기록을 삭제했습니다.`);
     setDeleteModalOpen(false);
     return { ok: true };
+  }
+
+  async function writeActivityLog(action, targetMonth, total) {
+    if (!isSupabaseReady || !session) return;
+    await supabase.from('asset_activity_logs').insert({
+      action,
+      month: targetMonth,
+      total,
+      user_email: session.user.email,
+    });
+  }
+
+  async function openLogsModal() {
+    setLogsModalOpen(true);
+    if (!isSupabaseReady) return;
+    setLogsLoading(true);
+    const { data, error } = await supabase
+      .from('asset_activity_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (!error) setActivityLogs(data || []);
+    setLogsLoading(false);
   }
 
   function removeSnapshotLocally(targetMonth) {
@@ -493,9 +522,13 @@ function App() {
               <h2>항목별 금액 입력</h2>
             </div>
             <div className="panel-actions">
+              <button className="secondary-button" onClick={openLogsModal} disabled={loading}>
+                <History size={17} />
+                로그 보기
+              </button>
               <button className="danger-button" onClick={() => setDeleteModalOpen(true)} disabled={loading}>
                 <Trash2 size={17} />
-                월 기록 삭제
+                {Number(month.slice(5))}월 기록 삭제
               </button>
               <button className="primary-button" onClick={saveSnapshot} disabled={loading}>
                 {loading ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
@@ -606,6 +639,10 @@ function App() {
 
       {deleteModalOpen && (
         <DeleteSnapshotModal month={month} onClose={() => setDeleteModalOpen(false)} onConfirm={deleteSnapshot} />
+      )}
+
+      {logsModalOpen && (
+        <ActivityLogsModal logs={activityLogs} loading={logsLoading} onClose={() => setLogsModalOpen(false)} />
       )}
     </main>
   );
@@ -985,6 +1022,30 @@ function DeleteSnapshotModal({ month, onClose, onConfirm }) {
           </button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function ActivityLogsModal({ logs, loading, onClose }) {
+  return (
+    <Modal title="활동 로그" onClose={onClose}>
+      <div className="activity-log-list">
+        {loading ? (
+          <p className="empty">로그를 불러오는 중입니다.</p>
+        ) : logs.length === 0 ? (
+          <p className="empty">아직 저장된 로그가 없습니다.</p>
+        ) : (
+          logs.map((log) => (
+            <article className={`activity-log-item ${log.action}`} key={log.id}>
+              <div>
+                <strong>{log.month} {log.action === 'delete' ? '삭제' : '저장'}</strong>
+                <span>{log.user_email || '알 수 없음'} · {new Date(log.created_at).toLocaleString('ko-KR')}</span>
+              </div>
+              <em>{formatWon(log.total)}</em>
+            </article>
+          ))
+        )}
+      </div>
     </Modal>
   );
 }
