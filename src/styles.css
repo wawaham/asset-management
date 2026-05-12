@@ -177,6 +177,34 @@ h2 {
   gap: 10px;
 }
 
+.page-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(24, 32, 27, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.page-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #526055;
+  font-weight: 900;
+}
+
+.page-tabs button.active {
+  background: #143f3d;
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(20, 63, 61, 0.16);
+}
+
 .month-control input {
   width: 100%;
   border: 0;
@@ -308,6 +336,290 @@ h2 {
   gap: 18px;
   margin-top: 18px;
   align-items: start;
+}
+
+.ltv-page {
+  display: grid;
+  gap: 18px;
+}
+
+.ltv-hero,
+.ltv-controls,
+.ltv-results {
+  border: 1px solid rgba(24, 32, 27, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 16px 36px rgba(30, 44, 34, 0.08);
+}
+
+.ltv-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 430px;
+  gap: 22px;
+  align-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(20, 63, 61, 0.95), rgba(35, 110, 105, 0.9));
+  color: #ffffff;
+}
+
+.ltv-hero h2 {
+  margin-bottom: 8px;
+  color: #ffffff;
+  font-size: clamp(28px, 4vw, 48px);
+}
+
+.ltv-hero p {
+  max-width: 720px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.65;
+}
+
+.ltv-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ltv-rule-grid div {
+  min-height: 92px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ltv-rule-grid strong,
+.ltv-rule-grid span {
+  display: block;
+}
+
+.ltv-rule-grid strong {
+  margin-bottom: 8px;
+  font-size: 28px;
+}
+
+.ltv-rule-grid span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ltv-layout {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.ltv-controls {
+  position: sticky;
+  top: 20px;
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.ltv-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ltv-card-head > svg {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(35, 110, 105, 0.1);
+  color: #236e69;
+}
+
+.ltv-card-head h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.ltv-controls label {
+  display: grid;
+  gap: 8px;
+  color: #526055;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.ltv-controls label span {
+  display: flex;
+  align-items: center;
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid rgba(24, 32, 27, 0.1);
+  border-radius: 8px;
+  background: #fbfcf8;
+}
+
+.ltv-controls input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #18201b;
+  font-size: 16px;
+  font-weight: 950;
+}
+
+.ltv-controls small {
+  color: #7a857b;
+  font-weight: 900;
+}
+
+.ltv-note {
+  padding: 14px;
+  border-radius: 8px;
+  background: #f7f8f1;
+  color: #526055;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.55;
+}
+
+.ltv-results {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.ltv-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ltv-summary-card {
+  display: grid;
+  gap: 8px;
+  min-height: 148px;
+  padding: 18px;
+  border: 1px solid rgba(24, 32, 27, 0.08);
+  border-radius: 8px;
+  background: #fbfcf8;
+}
+
+.ltv-summary-card.strong {
+  background: linear-gradient(135deg, #143f3d, #236e69);
+  color: #ffffff;
+}
+
+.ltv-summary-card svg {
+  width: 36px;
+  height: 36px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(35, 110, 105, 0.1);
+  color: #236e69;
+}
+
+.ltv-summary-card.strong svg {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.ltv-summary-card span,
+.ltv-summary-card small {
+  color: inherit;
+  opacity: 0.68;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ltv-summary-card strong {
+  font-size: clamp(22px, 2.3vw, 32px);
+  line-height: 1.05;
+}
+
+.scenario-table-wrap {
+  overflow: auto;
+  border: 1px solid rgba(24, 32, 27, 0.08);
+  border-radius: 8px;
+}
+
+.scenario-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+.scenario-table th,
+.scenario-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid rgba(24, 32, 27, 0.07);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.scenario-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f7f8f1;
+  color: #526055;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.scenario-table td {
+  color: #18201b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.scenario-table td span,
+.scenario-table td small {
+  display: block;
+  margin-top: 4px;
+  color: #7a857b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.scenario-table b {
+  color: #143f3d;
+  font-size: 15px;
+}
+
+.scenario-table i,
+.scenario-table em {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.stress-on {
+  background: #fff1ed;
+  color: #c93a32;
+}
+
+.stress-off {
+  background: #eef4ef;
+  color: #236e69;
+}
+
+.limit-dsr {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.limit-ltv {
+  background: #f4f0ff;
+  color: #6c4bd8;
 }
 
 .editor-panel,
@@ -1294,6 +1606,15 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .ltv-hero,
+  .ltv-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ltv-controls {
+    position: static;
+  }
+
   .insight-panel {
     position: static;
   }
@@ -1330,6 +1651,30 @@ h2 {
   .top-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .page-tabs {
+    width: 100%;
+  }
+
+  .page-tabs button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .ltv-hero,
+  .ltv-controls,
+  .ltv-results {
+    padding: 16px;
+  }
+
+  .ltv-rule-grid,
+  .ltv-summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ltv-rule-grid div {
+    min-height: 82px;
   }
 
   .month-popover {
@@ -1389,6 +1734,11 @@ h2 {
 
   .summary-card {
     min-height: 132px;
+  }
+
+  .ltv-rule-grid,
+  .ltv-summary-grid {
+    grid-template-columns: 1fr;
   }
 
   .asset-row {

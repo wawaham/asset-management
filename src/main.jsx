@@ -4,19 +4,23 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarDays,
+  Calculator,
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
   Database,
   Eye,
   Home,
+  Landmark,
   LineChart,
   Loader2,
   Lock,
   LogOut,
   Mail,
   Maximize2,
+  Percent,
   Plus,
+  ReceiptText,
   Save,
   Sparkles,
   Trash2,
@@ -49,6 +53,10 @@ const storageKey = 'couple-asset-snapshots';
 const deletedMonthsKey = 'couple-asset-deleted-months';
 const hundredMillion = 100000000;
 const tenThousand = 10000;
+const ltvRatio = 0.7;
+const ltvMaxLoan = 600000000;
+const dsrRatio = 0.4;
+const stressRateAdd = 1.5;
 
 const aprilRows = [
   { owner: '인웅', category: '청년도약계좌', amount: 0.077 * hundredMillion },
@@ -124,6 +132,18 @@ function formatWon(value) {
   }).format(Math.round(value || 0));
 }
 
+function formatCompactWon(value) {
+  const amount = Math.round(value || 0);
+  if (amount >= hundredMillion) {
+    const eok = amount / hundredMillion;
+    return `${Number.isInteger(eok) ? eok : eok.toFixed(2)}억`;
+  }
+  if (amount >= tenThousand) {
+    return `${Math.round(amount / tenThousand).toLocaleString('ko-KR')}만`;
+  }
+  return amount.toLocaleString('ko-KR');
+}
+
 function formatSignedWon(value) {
   const sign = value > 0 ? '+' : value < 0 ? '-' : '';
   return `${sign}${formatWon(Math.abs(value))}`;
@@ -141,6 +161,72 @@ function getDelta(current, previous) {
     amount,
     percent: previous ? (amount / previous) * 100 : null,
     tone: amount > 0 ? 'up' : amount < 0 ? 'down' : 'flat',
+  };
+}
+
+function parseWonInput(value) {
+  return normalizeAmount(value);
+}
+
+function monthlyEqualPayment(principal, annualRate, years) {
+  const months = years * 12;
+  const monthlyRate = annualRate / 100 / 12;
+  if (!monthlyRate) return principal / months;
+  return principal * monthlyRate * ((1 + monthlyRate) ** months) / (((1 + monthlyRate) ** months) - 1);
+}
+
+function annualPaymentFactor(method, annualRate, years) {
+  const months = years * 12;
+  const monthlyRate = annualRate / 100 / 12;
+
+  if (method === 'equal-principal') {
+    const principalFactor = 12 / months;
+    const interestFactor = Array.from({ length: 12 }, (_, index) => (1 - index / months) * monthlyRate)
+      .reduce((sum, value) => sum + value, 0);
+    return principalFactor + interestFactor;
+  }
+
+  if (method === 'graduated') {
+    return (monthlyEqualPayment(1, annualRate, years) * 12) * 0.78;
+  }
+
+  return monthlyEqualPayment(1, annualRate, years) * 12;
+}
+
+function firstMonthPayment(principal, method, annualRate, years) {
+  const months = years * 12;
+  const monthlyRate = annualRate / 100 / 12;
+
+  if (method === 'equal-principal') {
+    return principal / months + principal * monthlyRate;
+  }
+
+  if (method === 'graduated') {
+    return monthlyEqualPayment(principal, annualRate, years) * 0.78;
+  }
+
+  return monthlyEqualPayment(principal, annualRate, years);
+}
+
+function calculateLoanLimit({ homePrice, annualIncome, annualRate, years, method, stressApplied }) {
+  const ltvLimit = Math.min(homePrice * ltvRatio, ltvMaxLoan);
+  const dsrAnnualLimit = annualIncome * dsrRatio;
+  const dsrRate = annualRate + (stressApplied ? stressRateAdd : 0);
+  const factor = annualPaymentFactor(method, dsrRate, years);
+  const dsrLimit = factor ? dsrAnnualLimit / factor : ltvLimit;
+  const finalLimit = Math.max(0, Math.min(ltvLimit, dsrLimit));
+  const realMonthlyPayment = firstMonthPayment(finalLimit, method, annualRate, years);
+  const dsrMonthlyPayment = firstMonthPayment(finalLimit, method, dsrRate, years);
+
+  return {
+    ltvLimit,
+    dsrLimit,
+    finalLimit,
+    neededCash: Math.max(0, homePrice - finalLimit),
+    realMonthlyPayment,
+    dsrMonthlyPayment,
+    bottleneck: ltvLimit <= dsrLimit ? 'LTV' : 'DSR',
+    dsrRate,
   };
 }
 
@@ -326,6 +412,7 @@ function mergeSeedSnapshots(snapshots) {
 }
 
 function App() {
+  const [page, setPage] = useState('assets');
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(!isSupabaseReady);
   const [month, setMonth] = useState('2026-05');
@@ -597,10 +684,20 @@ function App() {
           <p className="eyebrow">
             <Sparkles size={15} /> 인웅 · 운정
           </p>
-          <h1>월별 자산 현황</h1>
+          <h1>{page === 'assets' ? '월별 자산 현황' : 'LTV 계산기'}</h1>
         </div>
         <div className="top-actions">
-          <MonthPicker value={month} snapshots={snapshots} onChange={setMonth} />
+          <nav className="page-tabs" aria-label="페이지 이동">
+            <button className={page === 'assets' ? 'active' : ''} onClick={() => setPage('assets')}>
+              <WalletCards size={16} />
+              자산 현황
+            </button>
+            <button className={page === 'ltv' ? 'active' : ''} onClick={() => setPage('ltv')}>
+              <Calculator size={16} />
+              LTV 계산기
+            </button>
+          </nav>
+          {page === 'assets' && <MonthPicker value={month} snapshots={snapshots} onChange={setMonth} />}
           {session && (
             <button className="secondary-button" onClick={signOut}>
               <LogOut size={17} />
@@ -610,6 +707,8 @@ function App() {
         </div>
       </section>
 
+      {page === 'assets' ? (
+        <>
       <section className="summary-grid" aria-label="자산 요약">
         <SummaryCard icon={<CircleDollarSign />} label="합산 자산" value={totals.combined} delta={summaryDeltas.combined} ticker tone="strong" />
         <SummaryCard icon={<Users />} label="인웅 자산" value={totals.byOwner['인웅']} delta={summaryDeltas.inwoong} ticker />
@@ -746,6 +845,10 @@ function App() {
         <DeleteSnapshotModal month={month} onClose={() => setDeleteModalOpen(false)} onConfirm={deleteSnapshot} />
       )}
 
+        </>
+      ) : (
+        <LtvCalculator />
+      )}
     </main>
   );
 }
@@ -913,6 +1016,168 @@ function AnimatedWon({ value }) {
   }, [value]);
 
   return <span className="ticker-number">{formatWon(displayValue)}</span>;
+}
+
+function LtvCalculator() {
+  const [homePrice, setHomePrice] = useState(formatAmountInput(700000000));
+  const [annualIncome, setAnnualIncome] = useState(formatAmountInput(90000000));
+  const [customRate, setCustomRate] = useState('4.2');
+  const repaymentMethods = [
+    { key: 'equal-payment', label: '원리금 균등', description: '매월 같은 원리금을 내는 방식' },
+    { key: 'equal-principal', label: '원금 균등', description: '원금을 균등하게 갚아 초반 부담이 큰 방식' },
+    { key: 'graduated', label: '체증식', description: '초기 상환액을 낮게 잡는 간편 추정' },
+  ];
+  const terms = [30, 40];
+  const baseRates = [4, 4.5, 5];
+  const numericHomePrice = parseWonInput(homePrice);
+  const numericIncome = parseWonInput(annualIncome);
+  const numericCustomRate = Number(customRate);
+  const rates = [...new Set([...baseRates, ...(Number.isFinite(numericCustomRate) && numericCustomRate > 0 ? [numericCustomRate] : [])])]
+    .sort((a, b) => a - b);
+  const ltvLimit = Math.min(numericHomePrice * ltvRatio, ltvMaxLoan);
+  const scenarios = rates.flatMap((rate) => terms.flatMap((years) => repaymentMethods.flatMap((method) => [false, true].map((stressApplied) => ({
+    rate,
+    years,
+    method,
+    stressApplied,
+    result: calculateLoanLimit({
+      homePrice: numericHomePrice,
+      annualIncome: numericIncome,
+      annualRate: rate,
+      years,
+      method: method.key,
+      stressApplied,
+    }),
+  })))));
+  const bestScenario = scenarios.reduce((best, scenario) => (
+    !best || scenario.result.finalLimit > best.result.finalLimit ? scenario : best
+  ), null);
+
+  function updateMoney(setter, value) {
+    setter(formatAmountInput(value));
+  }
+
+  return (
+    <section className="ltv-page">
+      <div className="ltv-hero">
+        <div>
+          <p className="section-kicker">Housing Loan Simulator</p>
+          <h2>생애최초 주담대 한도 비교</h2>
+          <p>
+            수도권 생애최초 기준 LTV 70%, 최대 6억, DSR 40%를 기준으로 금리와 만기,
+            상환방식, 스트레스 DSR 적용 여부를 한 번에 비교합니다.
+          </p>
+        </div>
+        <div className="ltv-rule-grid">
+          <div><strong>70%</strong><span>LTV</span></div>
+          <div><strong>6억</strong><span>최대 한도</span></div>
+          <div><strong>40%</strong><span>DSR</span></div>
+          <div><strong>+1.5%</strong><span>스트레스</span></div>
+        </div>
+      </div>
+
+      <div className="ltv-layout">
+        <section className="ltv-controls">
+          <div className="ltv-card-head">
+            <Landmark size={22} />
+            <div>
+              <p className="section-kicker">Inputs</p>
+              <h3>기본 조건</h3>
+            </div>
+          </div>
+          <label>
+            주택금액
+            <span>
+              <input value={homePrice} onChange={(event) => updateMoney(setHomePrice, event.target.value)} inputMode="numeric" />
+              <small>원</small>
+            </span>
+          </label>
+          <label>
+            합산 연봉
+            <span>
+              <input value={annualIncome} onChange={(event) => updateMoney(setAnnualIncome, event.target.value)} inputMode="numeric" />
+              <small>원</small>
+            </span>
+          </label>
+          <label>
+            직접 설정 금리
+            <span>
+              <input value={customRate} onChange={(event) => setCustomRate(event.target.value)} inputMode="decimal" />
+              <small>%</small>
+            </span>
+          </label>
+          <div className="ltv-note">
+            체증식은 상품별 실제 산식이 다르기 때문에 초기 상환액을 낮게 잡은 간편 추정값입니다.
+            실제 심사는 은행별 기준과 기존 대출에 따라 달라질 수 있습니다.
+          </div>
+        </section>
+
+        <section className="ltv-results">
+          <div className="ltv-summary-grid">
+            <article className="ltv-summary-card strong">
+              <Calculator size={21} />
+              <span>최대 가능 한도</span>
+              <strong>{formatWon(bestScenario?.result.finalLimit || 0)}</strong>
+              <small>{bestScenario ? `${bestScenario.method.label} · ${bestScenario.years}년 · ${bestScenario.rate}%` : '-'}</small>
+            </article>
+            <article className="ltv-summary-card">
+              <Percent size={21} />
+              <span>LTV 기준 한도</span>
+              <strong>{formatWon(ltvLimit)}</strong>
+              <small>주택금액 70%, 최대 6억</small>
+            </article>
+            <article className="ltv-summary-card">
+              <ReceiptText size={21} />
+              <span>DSR 연간 한도</span>
+              <strong>{formatWon(numericIncome * dsrRatio)}</strong>
+              <small>합산 연봉의 40%</small>
+            </article>
+          </div>
+
+          <div className="scenario-table-wrap">
+            <table className="scenario-table">
+              <thead>
+                <tr>
+                  <th>금리</th>
+                  <th>만기</th>
+                  <th>상환방식</th>
+                  <th>스트레스</th>
+                  <th>최종 한도</th>
+                  <th>월상환</th>
+                  <th>필요 현금</th>
+                  <th>제한</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scenarios.map(({ rate, years, method, stressApplied, result }) => (
+                  <tr key={`${rate}-${years}-${method.key}-${stressApplied}`}>
+                    <td>{rate}%</td>
+                    <td>{years}년</td>
+                    <td>
+                      <strong>{method.label}</strong>
+                      <span>{method.description}</span>
+                    </td>
+                    <td>
+                      <i className={stressApplied ? 'stress-on' : 'stress-off'}>
+                        {stressApplied ? `적용 ${result.dsrRate}%` : '미적용'}
+                      </i>
+                    </td>
+                    <td><b>{formatCompactWon(result.finalLimit)}</b></td>
+                    <td>
+                      {formatCompactWon(result.realMonthlyPayment)}
+                      <small>DSR {formatCompactWon(result.dsrMonthlyPayment)}</small>
+                    </td>
+                    <td>{formatCompactWon(result.neededCash)}</td>
+                    <td><em className={result.bottleneck === 'DSR' ? 'limit-dsr' : 'limit-ltv'}>{result.bottleneck}</em></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+  );
 }
 
 function MonthlyTrendChart({ snapshots, large = false }) {
