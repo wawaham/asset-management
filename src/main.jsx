@@ -217,6 +217,8 @@ function calculateLoanLimit({ homePrice, annualIncome, annualRate, years, method
   const finalLimit = Math.max(0, Math.min(ltvLimit, dsrLimit));
   const realMonthlyPayment = firstMonthPayment(finalLimit, method, annualRate, years);
   const dsrMonthlyPayment = firstMonthPayment(finalLimit, method, dsrRate, years);
+  const realDsr = annualIncome ? (realMonthlyPayment * 12 / annualIncome) * 100 : 0;
+  const stressDsr = annualIncome ? (dsrMonthlyPayment * 12 / annualIncome) * 100 : 0;
 
   return {
     ltvLimit,
@@ -225,6 +227,8 @@ function calculateLoanLimit({ homePrice, annualIncome, annualRate, years, method
     neededCash: Math.max(0, homePrice - finalLimit),
     realMonthlyPayment,
     dsrMonthlyPayment,
+    realDsr,
+    stressDsr,
     bottleneck: ltvLimit <= dsrLimit ? 'LTV' : 'DSR',
     dsrRate,
   };
@@ -1019,9 +1023,9 @@ function AnimatedWon({ value }) {
 }
 
 function LtvCalculator() {
-  const [homePrice, setHomePrice] = useState(formatAmountInput(700000000));
-  const [annualIncome, setAnnualIncome] = useState(formatAmountInput(90000000));
-  const [customRate, setCustomRate] = useState('4.2');
+  const [homePrice, setHomePrice] = useState(formatAmountInput(950000000));
+  const [annualIncome, setAnnualIncome] = useState(formatAmountInput(95000000));
+  const [customRate, setCustomRate] = useState('4.5');
   const [scenarioView, setScenarioView] = useState('grouped');
   const [methodFilter, setMethodFilter] = useState('all');
   const [termFilter, setTermFilter] = useState('all');
@@ -1072,6 +1076,14 @@ function LtvCalculator() {
 
   function updateMoney(setter, value) {
     setter(formatAmountInput(value));
+  }
+
+  function resetFilters() {
+    setScenarioView('grouped');
+    setMethodFilter('all');
+    setTermFilter('all');
+    setStressFilter('all');
+    setRateFilter('all');
   }
 
   return (
@@ -1153,27 +1165,52 @@ function LtvCalculator() {
 
           <div className="scenario-toolbar">
             <div className="scenario-view-toggle" aria-label="보기 방식">
-              <button className={scenarioView === 'grouped' ? 'active' : ''} onClick={() => setScenarioView('grouped')}>묶음 보기</button>
-              <button className={scenarioView === 'price' ? 'active' : ''} onClick={() => setScenarioView('price')}>한도 높은순</button>
+              <button
+                className={scenarioView === 'grouped' ? 'active' : ''}
+                onClick={() => setScenarioView('grouped')}
+                title="금리, 만기, 상환방식, 스트레스 적용 여부 순서로 조건을 묶어서 보여줍니다."
+              >
+                묶음 보기
+              </button>
+              <button
+                className={scenarioView === 'price' ? 'active' : ''}
+                onClick={() => setScenarioView('price')}
+                title="최종 대출 한도가 큰 조건부터 정렬합니다."
+              >
+                한도 높은순
+              </button>
             </div>
             <div className="scenario-filters">
-              <select value={rateFilter} onChange={(event) => setRateFilter(event.target.value)} aria-label="금리 필터">
-                <option value="all">전체 금리</option>
-                {rates.map((rate) => <option key={rate} value={rate}>{rate}%</option>)}
-              </select>
-              <select value={termFilter} onChange={(event) => setTermFilter(event.target.value)} aria-label="만기 필터">
-                <option value="all">전체 만기</option>
-                {terms.map((years) => <option key={years} value={years}>{years}년</option>)}
-              </select>
-              <select value={methodFilter} onChange={(event) => setMethodFilter(event.target.value)} aria-label="상환방식 필터">
-                <option value="all">전체 방식</option>
-                {repaymentMethods.map((method) => <option key={method.key} value={method.key}>{method.label}</option>)}
-              </select>
-              <select value={stressFilter} onChange={(event) => setStressFilter(event.target.value)} aria-label="스트레스 DSR 필터">
-                <option value="all">스트레스 전체</option>
-                <option value="false">미적용</option>
-                <option value="true">적용</option>
-              </select>
+              <label>
+                <span>금리</span>
+                <select value={rateFilter} onChange={(event) => setRateFilter(event.target.value)} aria-label="금리 필터">
+                  <option value="all">전체</option>
+                  {rates.map((rate) => <option key={rate} value={rate}>{rate}%</option>)}
+                </select>
+              </label>
+              <label>
+                <span>만기</span>
+                <select value={termFilter} onChange={(event) => setTermFilter(event.target.value)} aria-label="만기 필터">
+                  <option value="all">전체</option>
+                  {terms.map((years) => <option key={years} value={years}>{years}년</option>)}
+                </select>
+              </label>
+              <label>
+                <span>상환</span>
+                <select value={methodFilter} onChange={(event) => setMethodFilter(event.target.value)} aria-label="상환방식 필터">
+                  <option value="all">전체</option>
+                  {repaymentMethods.map((method) => <option key={method.key} value={method.key}>{method.label}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>DSR</span>
+                <select value={stressFilter} onChange={(event) => setStressFilter(event.target.value)} aria-label="스트레스 DSR 필터">
+                  <option value="all">전체</option>
+                  <option value="false">미적용</option>
+                  <option value="true">적용</option>
+                </select>
+              </label>
+              <button className="filter-reset" onClick={resetFilters}>초기화</button>
             </div>
           </div>
 
@@ -1208,7 +1245,9 @@ function LtvCalculator() {
                     <td><b>{formatCompactWon(result.finalLimit)}</b></td>
                     <td>
                       {formatCompactWon(result.realMonthlyPayment)}
-                      <small>DSR {formatCompactWon(result.dsrMonthlyPayment)}</small>
+                      <small>실제 DSR {result.realDsr.toFixed(1)}%</small>
+                      <small>심사 DSR {result.stressDsr.toFixed(1)}%</small>
+                      <small>DSR 월상환 {formatCompactWon(result.dsrMonthlyPayment)}</small>
                     </td>
                     <td>{formatCompactWon(result.neededCash)}</td>
                     <td><em className={result.bottleneck === 'DSR' ? 'limit-dsr' : 'limit-ltv'}>{result.bottleneck}</em></td>

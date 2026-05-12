@@ -600,14 +600,45 @@ h2 {
   gap: 8px;
 }
 
-.scenario-filters select {
-  height: 36px;
-  padding: 0 32px 0 11px;
+.scenario-filters label {
+  display: grid;
+  min-width: 112px;
+  gap: 4px;
+  padding: 8px 10px;
   border: 1px solid rgba(24, 32, 27, 0.1);
   border-radius: 8px;
-  background: #ffffff;
+  background: #fbfcf8;
+}
+
+.scenario-filters label span {
+  color: #7a857b;
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.scenario-filters select {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
   color: #18201b;
+  font-size: 13px;
   font-weight: 900;
+}
+
+.filter-reset {
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid rgba(197, 69, 63, 0.22);
+  border-radius: 8px;
+  background: #fff8f6;
+  color: #bb3f39;
+  font-weight: 950;
+}
+
+.filter-reset:hover {
+  border-color: rgba(197, 69, 63, 0.42);
+  background: #fff1ed;
 }
 
 .scenario-table-wrap {
@@ -1765,8 +1796,12 @@ h2 {
     justify-content: stretch;
   }
 
-  .scenario-filters select {
+  .scenario-filters label {
     flex: 1 1 140px;
+  }
+
+  .filter-reset {
+    flex: 1 1 100%;
   }
 
   .month-popover {
