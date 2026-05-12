@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   CalendarDays,
   Calculator,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
@@ -1011,6 +1012,54 @@ function AnimatedWon({ value }) {
   return <span className="ticker-number">{formatWon(displayValue)}</span>;
 }
 
+function FilterSelect({ label, value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const selectRef = useRef(null);
+  const selected = options.find((option) => option.value === value) || options[0];
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function closeOnOutsideClick(event) {
+      if (selectRef.current && !selectRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [open]);
+
+  function selectOption(nextValue) {
+    onChange(nextValue);
+    setOpen(false);
+  }
+
+  return (
+    <div className={`filter-select ${open ? 'open' : ''}`} ref={selectRef}>
+      <button type="button" className="filter-select-trigger" onClick={() => setOpen((current) => !current)}>
+        <span>{label}</span>
+        <strong>{selected.label}</strong>
+        <ChevronDown size={16} />
+      </button>
+      {open && (
+        <div className="filter-select-menu">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={option.value === value ? 'active' : ''}
+              onClick={() => selectOption(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LtvCalculator() {
   const [homePrice, setHomePrice] = useState(formatAmountInput(950000000));
   const [annualIncome, setAnnualIncome] = useState(formatAmountInput(95000000));
@@ -1062,6 +1111,16 @@ function LtvCalculator() {
         || a.method.label.localeCompare(b.method.label, 'ko-KR')
         || Number(a.stressApplied) - Number(b.stressApplied);
     });
+  const filterOptions = {
+    rates: [{ value: 'all', label: '전체' }, ...rates.map((rate) => ({ value: String(rate), label: `${rate}%` }))],
+    terms: [{ value: 'all', label: '전체' }, ...terms.map((years) => ({ value: String(years), label: `${years}년` }))],
+    methods: [{ value: 'all', label: '전체' }, ...repaymentMethods.map((method) => ({ value: method.key, label: method.label }))],
+    stress: [
+      { value: 'all', label: '전체' },
+      { value: 'false', label: '미적용' },
+      { value: 'true', label: '적용' },
+    ],
+  };
 
   function updateMoney(setter, value) {
     setter(formatAmountInput(value));
@@ -1176,35 +1235,10 @@ function LtvCalculator() {
               </button>
             </div>
             <div className="scenario-filters">
-              <label>
-                <span>금리</span>
-                <select value={rateFilter} onChange={(event) => setRateFilter(event.target.value)} aria-label="금리 필터">
-                  <option value="all">전체</option>
-                  {rates.map((rate) => <option key={rate} value={rate}>{rate}%</option>)}
-                </select>
-              </label>
-              <label>
-                <span>만기</span>
-                <select value={termFilter} onChange={(event) => setTermFilter(event.target.value)} aria-label="만기 필터">
-                  <option value="all">전체</option>
-                  {terms.map((years) => <option key={years} value={years}>{years}년</option>)}
-                </select>
-              </label>
-              <label>
-                <span>상환</span>
-                <select value={methodFilter} onChange={(event) => setMethodFilter(event.target.value)} aria-label="상환방식 필터">
-                  <option value="all">전체</option>
-                  {repaymentMethods.map((method) => <option key={method.key} value={method.key}>{method.label}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>DSR</span>
-                <select value={stressFilter} onChange={(event) => setStressFilter(event.target.value)} aria-label="스트레스 DSR 필터">
-                  <option value="all">전체</option>
-                  <option value="false">미적용</option>
-                  <option value="true">적용</option>
-                </select>
-              </label>
+              <FilterSelect label="금리" value={rateFilter} options={filterOptions.rates} onChange={setRateFilter} />
+              <FilterSelect label="만기" value={termFilter} options={filterOptions.terms} onChange={setTermFilter} />
+              <FilterSelect label="상환" value={methodFilter} options={filterOptions.methods} onChange={setMethodFilter} />
+              <FilterSelect label="DSR" value={stressFilter} options={filterOptions.stress} onChange={setStressFilter} />
               <button className="filter-reset" onClick={resetFilters}>초기화</button>
             </div>
           </div>
