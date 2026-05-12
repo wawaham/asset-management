@@ -124,6 +124,26 @@ function formatWon(value) {
   }).format(Math.round(value || 0));
 }
 
+function formatSignedWon(value) {
+  const sign = value > 0 ? '+' : value < 0 ? '-' : '';
+  return `${sign}${formatWon(Math.abs(value))}`;
+}
+
+function formatPercent(value) {
+  if (value === null) return '-';
+  const sign = value > 0 ? '+' : value < 0 ? '-' : '';
+  return `${sign}${Math.abs(value).toFixed(1)}%`;
+}
+
+function getDelta(current, previous) {
+  const amount = current - previous;
+  return {
+    amount,
+    percent: previous ? (amount / previous) * 100 : null,
+    tone: amount > 0 ? 'up' : amount < 0 ? 'down' : 'flat',
+  };
+}
+
 function formatAxisAmount(value) {
   if (value >= 100000000) {
     const amount = value / 100000000;
@@ -366,6 +386,11 @@ function App() {
 
   const previousTotal = useMemo(() => (previousSnapshot ? snapshotTotal(previousSnapshot) : 0), [previousSnapshot]);
   const monthlyGrowth = totals.combined - previousTotal;
+  const summaryDeltas = useMemo(() => ({
+    combined: getDelta(totals.combined, previousTotal),
+    inwoong: getDelta(totals.byOwner['인웅'], previousSnapshot ? snapshotTotal(previousSnapshot, '인웅') : 0),
+    woonjung: getDelta(totals.byOwner['운정'], previousSnapshot ? snapshotTotal(previousSnapshot, '운정') : 0),
+  }), [previousSnapshot, previousTotal, totals]);
   const categoryEntries = Object.entries(totals.byCategory)
     .sort(([, a], [, b]) => b - a)
     .filter(([, amount]) => amount > 0);
@@ -586,9 +611,9 @@ function App() {
       </section>
 
       <section className="summary-grid" aria-label="자산 요약">
-        <SummaryCard icon={<CircleDollarSign />} label="합산 자산" value={totals.combined} ticker tone="strong" />
-        <SummaryCard icon={<Users />} label="인웅 자산" value={totals.byOwner['인웅']} ticker />
-        <SummaryCard icon={<WalletCards />} label="운정 자산" value={totals.byOwner['운정']} ticker />
+        <SummaryCard icon={<CircleDollarSign />} label="합산 자산" value={totals.combined} delta={summaryDeltas.combined} ticker tone="strong" />
+        <SummaryCard icon={<Users />} label="인웅 자산" value={totals.byOwner['인웅']} delta={summaryDeltas.inwoong} ticker />
+        <SummaryCard icon={<WalletCards />} label="운정 자산" value={totals.byOwner['운정']} delta={summaryDeltas.woonjung} ticker />
         <SummaryCard
           icon={monthlyGrowth >= 0 ? <ArrowUpRight /> : <ArrowDownRight />}
           label={previousSnapshot ? `${previousSnapshot.month} 대비` : '전월 대비'}
@@ -847,12 +872,20 @@ function AuthScreen() {
   );
 }
 
-function SummaryCard({ icon, label, value, tone, accent, ticker }) {
+function SummaryCard({ icon, label, value, delta, tone, accent, ticker }) {
   return (
     <article className={`summary-card ${tone || ''} ${accent || ''}`}>
       <div className="card-icon">{icon}</div>
       <span>{label}</span>
-      <strong>{ticker ? <AnimatedWon value={value} /> : formatWon(value)}</strong>
+      <div className="summary-value-row">
+        <strong>{ticker ? <AnimatedWon value={value} /> : formatWon(value)}</strong>
+        {delta && (
+          <em className={`summary-delta ${delta.tone}`}>
+            {formatSignedWon(delta.amount)}
+            <small>{formatPercent(delta.percent)}</small>
+          </em>
+        )}
+      </div>
     </article>
   );
 }
