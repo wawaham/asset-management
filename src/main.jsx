@@ -687,7 +687,7 @@ function App() {
           <h1>{page === 'assets' ? '월별 자산 현황' : 'LTV 계산기'}</h1>
         </div>
         <div className="top-actions">
-          <nav className="page-tabs" aria-label="페이지 이동">
+          <nav className={`page-tabs ${page}-active`} aria-label="페이지 이동">
             <button className={page === 'assets' ? 'active' : ''} onClick={() => setPage('assets')}>
               <WalletCards size={16} />
               자산 현황
@@ -1022,6 +1022,11 @@ function LtvCalculator() {
   const [homePrice, setHomePrice] = useState(formatAmountInput(700000000));
   const [annualIncome, setAnnualIncome] = useState(formatAmountInput(90000000));
   const [customRate, setCustomRate] = useState('4.2');
+  const [scenarioView, setScenarioView] = useState('grouped');
+  const [methodFilter, setMethodFilter] = useState('all');
+  const [termFilter, setTermFilter] = useState('all');
+  const [stressFilter, setStressFilter] = useState('all');
+  const [rateFilter, setRateFilter] = useState('all');
   const repaymentMethods = [
     { key: 'equal-payment', label: '원리금 균등', description: '매월 같은 원리금을 내는 방식' },
     { key: 'equal-principal', label: '원금 균등', description: '원금을 균등하게 갚아 초반 부담이 큰 방식' },
@@ -1052,6 +1057,18 @@ function LtvCalculator() {
   const bestScenario = scenarios.reduce((best, scenario) => (
     !best || scenario.result.finalLimit > best.result.finalLimit ? scenario : best
   ), null);
+  const filteredScenarios = scenarios
+    .filter((scenario) => methodFilter === 'all' || scenario.method.key === methodFilter)
+    .filter((scenario) => termFilter === 'all' || String(scenario.years) === termFilter)
+    .filter((scenario) => stressFilter === 'all' || String(scenario.stressApplied) === stressFilter)
+    .filter((scenario) => rateFilter === 'all' || String(scenario.rate) === rateFilter)
+    .sort((a, b) => {
+      if (scenarioView === 'price') return b.result.finalLimit - a.result.finalLimit;
+      return a.rate - b.rate
+        || a.years - b.years
+        || a.method.label.localeCompare(b.method.label, 'ko-KR')
+        || Number(a.stressApplied) - Number(b.stressApplied);
+    });
 
   function updateMoney(setter, value) {
     setter(formatAmountInput(value));
@@ -1117,21 +1134,47 @@ function LtvCalculator() {
             <article className="ltv-summary-card strong">
               <Calculator size={21} />
               <span>최대 가능 한도</span>
-              <strong>{formatWon(bestScenario?.result.finalLimit || 0)}</strong>
+              <strong><AnimatedWon value={bestScenario?.result.finalLimit || 0} /></strong>
               <small>{bestScenario ? `${bestScenario.method.label} · ${bestScenario.years}년 · ${bestScenario.rate}%` : '-'}</small>
             </article>
             <article className="ltv-summary-card">
               <Percent size={21} />
               <span>LTV 기준 한도</span>
-              <strong>{formatWon(ltvLimit)}</strong>
+              <strong><AnimatedWon value={ltvLimit} /></strong>
               <small>주택금액 70%, 최대 6억</small>
             </article>
             <article className="ltv-summary-card">
               <ReceiptText size={21} />
               <span>DSR 연간 한도</span>
-              <strong>{formatWon(numericIncome * dsrRatio)}</strong>
+              <strong><AnimatedWon value={numericIncome * dsrRatio} /></strong>
               <small>합산 연봉의 40%</small>
             </article>
+          </div>
+
+          <div className="scenario-toolbar">
+            <div className="scenario-view-toggle" aria-label="보기 방식">
+              <button className={scenarioView === 'grouped' ? 'active' : ''} onClick={() => setScenarioView('grouped')}>묶음 보기</button>
+              <button className={scenarioView === 'price' ? 'active' : ''} onClick={() => setScenarioView('price')}>한도 높은순</button>
+            </div>
+            <div className="scenario-filters">
+              <select value={rateFilter} onChange={(event) => setRateFilter(event.target.value)} aria-label="금리 필터">
+                <option value="all">전체 금리</option>
+                {rates.map((rate) => <option key={rate} value={rate}>{rate}%</option>)}
+              </select>
+              <select value={termFilter} onChange={(event) => setTermFilter(event.target.value)} aria-label="만기 필터">
+                <option value="all">전체 만기</option>
+                {terms.map((years) => <option key={years} value={years}>{years}년</option>)}
+              </select>
+              <select value={methodFilter} onChange={(event) => setMethodFilter(event.target.value)} aria-label="상환방식 필터">
+                <option value="all">전체 방식</option>
+                {repaymentMethods.map((method) => <option key={method.key} value={method.key}>{method.label}</option>)}
+              </select>
+              <select value={stressFilter} onChange={(event) => setStressFilter(event.target.value)} aria-label="스트레스 DSR 필터">
+                <option value="all">스트레스 전체</option>
+                <option value="false">미적용</option>
+                <option value="true">적용</option>
+              </select>
+            </div>
           </div>
 
           <div className="scenario-table-wrap">
@@ -1149,7 +1192,7 @@ function LtvCalculator() {
                 </tr>
               </thead>
               <tbody>
-                {scenarios.map(({ rate, years, method, stressApplied, result }) => (
+                {filteredScenarios.map(({ rate, years, method, stressApplied, result }) => (
                   <tr key={`${rate}-${years}-${method.key}-${stressApplied}`}>
                     <td>{rate}%</td>
                     <td>{years}년</td>
