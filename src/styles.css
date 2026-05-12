@@ -579,6 +579,7 @@ h2 {
 }
 
 .scenario-view-toggle button {
+  position: relative;
   min-height: 34px;
   padding: 0 12px;
   border: 0;
@@ -591,6 +592,45 @@ h2 {
 .scenario-view-toggle button.active {
   background: #143f3d;
   color: #ffffff;
+}
+
+.help-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 5px;
+  color: currentColor;
+  opacity: 0.72;
+}
+
+.help-tooltip > span {
+  position: absolute;
+  z-index: 5;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  width: max-content;
+  max-width: 260px;
+  padding: 9px 10px;
+  border: 1px solid rgba(24, 32, 27, 0.1);
+  border-radius: 8px;
+  background: #18201b;
+  box-shadow: 0 14px 32px rgba(10, 18, 13, 0.18);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.help-tooltip:hover > span,
+.help-tooltip:focus-within > span {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .scenario-filters {
@@ -670,6 +710,25 @@ h2 {
   color: #526055;
   font-size: 12px;
   font-weight: 950;
+}
+
+.table-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.scenario-table th .help-tooltip > span {
+  bottom: auto;
+  top: calc(100% + 10px);
+  left: auto;
+  right: 0;
+  transform: translateY(-4px);
+}
+
+.scenario-table th .help-tooltip:hover > span,
+.scenario-table th .help-tooltip:focus-within > span {
+  transform: translateY(0);
 }
 
 .scenario-table td {

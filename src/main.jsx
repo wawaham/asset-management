@@ -7,6 +7,7 @@ import {
   Calculator,
   ChevronLeft,
   ChevronRight,
+  CircleHelp,
   CircleDollarSign,
   Database,
   Eye,
@@ -193,32 +194,20 @@ function annualPaymentFactor(method, annualRate, years) {
   return monthlyEqualPayment(1, annualRate, years) * 12;
 }
 
-function firstMonthPayment(principal, method, annualRate, years) {
-  const months = years * 12;
-  const monthlyRate = annualRate / 100 / 12;
-
-  if (method === 'equal-principal') {
-    return principal / months + principal * monthlyRate;
-  }
-
-  if (method === 'graduated') {
-    return monthlyEqualPayment(principal, annualRate, years) * 0.78;
-  }
-
-  return monthlyEqualPayment(principal, annualRate, years);
-}
-
 function calculateLoanLimit({ homePrice, annualIncome, annualRate, years, method, stressApplied }) {
   const ltvLimit = Math.min(homePrice * ltvRatio, ltvMaxLoan);
   const dsrAnnualLimit = annualIncome * dsrRatio;
   const dsrRate = annualRate + (stressApplied ? stressRateAdd : 0);
   const factor = annualPaymentFactor(method, dsrRate, years);
+  const realFactor = annualPaymentFactor(method, annualRate, years);
   const dsrLimit = factor ? dsrAnnualLimit / factor : ltvLimit;
   const finalLimit = Math.max(0, Math.min(ltvLimit, dsrLimit));
-  const realMonthlyPayment = firstMonthPayment(finalLimit, method, annualRate, years);
-  const dsrMonthlyPayment = firstMonthPayment(finalLimit, method, dsrRate, years);
-  const realDsr = annualIncome ? (realMonthlyPayment * 12 / annualIncome) * 100 : 0;
-  const stressDsr = annualIncome ? (dsrMonthlyPayment * 12 / annualIncome) * 100 : 0;
+  const realAnnualPayment = finalLimit * realFactor;
+  const reviewAnnualPayment = finalLimit * factor;
+  const realMonthlyPayment = realAnnualPayment / 12;
+  const dsrMonthlyPayment = reviewAnnualPayment / 12;
+  const realDsr = annualIncome ? (realAnnualPayment / annualIncome) * 100 : 0;
+  const stressDsr = annualIncome ? (reviewAnnualPayment / annualIncome) * 100 : 0;
 
   return {
     ltvLimit,
@@ -1168,16 +1157,22 @@ function LtvCalculator() {
               <button
                 className={scenarioView === 'grouped' ? 'active' : ''}
                 onClick={() => setScenarioView('grouped')}
-                title="금리, 만기, 상환방식, 스트레스 적용 여부 순서로 조건을 묶어서 보여줍니다."
               >
                 묶음 보기
+                <span className="help-tooltip" aria-label="묶음 보기 설명">
+                  <CircleHelp size={14} />
+                  <span>금리, 만기, 상환방식, 스트레스 적용 여부 순서로 조건을 묶어서 보여줍니다.</span>
+                </span>
               </button>
               <button
                 className={scenarioView === 'price' ? 'active' : ''}
                 onClick={() => setScenarioView('price')}
-                title="최종 대출 한도가 큰 조건부터 정렬합니다."
               >
                 한도 높은순
+                <span className="help-tooltip" aria-label="한도 높은순 설명">
+                  <CircleHelp size={14} />
+                  <span>최종 대출 한도가 큰 조건부터 정렬합니다.</span>
+                </span>
               </button>
             </div>
             <div className="scenario-filters">
@@ -1225,7 +1220,15 @@ function LtvCalculator() {
                   <th>최종 한도</th>
                   <th>월상환</th>
                   <th>필요 현금</th>
-                  <th>제한</th>
+                  <th>
+                    <span className="table-help">
+                      제한
+                      <span className="help-tooltip" aria-label="제한 설명">
+                        <CircleHelp size={14} />
+                        <span>LTV는 주택가격 대비 한도에 걸린 경우, DSR은 소득 대비 상환능력 한도에 걸린 경우입니다.</span>
+                      </span>
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1250,7 +1253,14 @@ function LtvCalculator() {
                       <small>DSR 월상환 {formatCompactWon(result.dsrMonthlyPayment)}</small>
                     </td>
                     <td>{formatCompactWon(result.neededCash)}</td>
-                    <td><em className={result.bottleneck === 'DSR' ? 'limit-dsr' : 'limit-ltv'}>{result.bottleneck}</em></td>
+                    <td>
+                      <em
+                        className={result.bottleneck === 'DSR' ? 'limit-dsr' : 'limit-ltv'}
+                        title={result.bottleneck === 'DSR' ? '소득 대비 상환능력 한도에 걸린 조건입니다.' : '주택가격 대비 LTV 한도에 걸린 조건입니다.'}
+                      >
+                        {result.bottleneck}
+                      </em>
+                    </td>
                   </tr>
                 ))}
               </tbody>
