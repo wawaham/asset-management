@@ -1195,11 +1195,13 @@ function TipsBoard({ session }) {
     return { ok: true };
   }
 
-  async function removeSelectedPosts() {
+  async function removeSelectedPosts({ email, password }) {
+    const auth = await verifyCredential({ email, password });
+    if (!auth.ok) return auth;
+
     const { error } = await supabase.from('real_estate_tips').delete().in('id', checkedPostIds);
     if (error) {
-      showToast(`선택 삭제 실패: ${error.message}`, 'error');
-      return;
+      return { ok: false, message: `선택 삭제 실패: ${error.message}` };
     }
 
     await loadPosts();
@@ -1208,6 +1210,7 @@ function TipsBoard({ session }) {
     setBulkDeleteOpen(false);
     setMessage('선택한 게시글을 삭제했습니다.');
     showToast('선택 삭제 완료', 'danger');
+    return { ok: true };
   }
 
   function toggleCheckedPost(id) {
@@ -1235,10 +1238,6 @@ function TipsBoard({ session }) {
           <h2>부동산 꿀팁 보드</h2>
           <p>청약, 대출, 계약, 세금처럼 다시 찾아볼 내용을 사진과 함께 정리해두는 공간입니다.</p>
         </div>
-        <button className="primary-button" onClick={() => setEditorPost({ title: '', content: emptyTipContent })}>
-          <Plus size={17} />
-          글 작성
-        </button>
       </div>
 
       <section className="tips-list-page">
@@ -1248,16 +1247,18 @@ function TipsBoard({ session }) {
               <h3>작성한 리스트</h3>
               <span className="tips-count">총 {posts.length}개 · {postPage}/{totalPostPages}페이지</span>
             </div>
-            <div className="tips-list-actions">
-              <button className="primary-button" onClick={() => setEditorPost({ title: '', content: emptyTipContent })}>
-                <Plus size={17} />
-                글 작성
-              </button>
-              <button className="danger-button" onClick={() => setBulkDeleteOpen(true)} disabled={checkedPostIds.length === 0}>
-                <Trash2 size={17} />
-                선택 삭제 {checkedPostIds.length ? checkedPostIds.length : ''}
-              </button>
-            </div>
+            {posts.length > 0 && (
+              <div className="tips-list-actions">
+                <button className="primary-button" onClick={() => setEditorPost({ title: '', content: emptyTipContent })}>
+                  <Plus size={17} />
+                  글 작성
+                </button>
+                <button className="danger-button" onClick={() => setBulkDeleteOpen(true)} disabled={checkedPostIds.length === 0}>
+                  <Trash2 size={17} />
+                  선택 삭제 {checkedPostIds.length ? checkedPostIds.length : ''}
+                </button>
+              </div>
+            )}
             {loading && <Loader2 className="spin" size={18} />}
           </div>
           <div className="tips-list">
@@ -1344,11 +1345,8 @@ function TipsBoard({ session }) {
         />
       )}
       {bulkDeleteOpen && (
-        <ConfirmModal
-          title="선택 게시글 삭제"
-          message={`선택한 게시글 ${checkedPostIds.length}개를 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
-          confirmLabel="삭제"
-          tone="danger"
+        <TipBulkDeleteModal
+          count={checkedPostIds.length}
           onClose={() => setBulkDeleteOpen(false)}
           onConfirm={removeSelectedPosts}
         />
@@ -1510,6 +1508,50 @@ function TipDeleteModal({ post, onClose, onConfirm }) {
         <div className="delete-warning">
           <Trash2 size={20} />
           <strong>{post.title}</strong>
+          <p>삭제하려면 등록된 계정의 이메일과 비밀번호를 입력해주세요.</p>
+        </div>
+        <label>
+          이메일
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required />
+        </label>
+        <label>
+          비밀번호
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="비밀번호" required />
+        </label>
+        {message && <p className="auth-message">{message}</p>}
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose}>취소</button>
+          <button className="danger-button solid" type="submit" disabled={loading}>
+            {loading ? <Loader2 className="spin" size={17} /> : <Trash2 size={17} />}
+            삭제
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function TipBulkDeleteModal({ count, onClose, onConfirm }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage('');
+    const result = await onConfirm({ email, password });
+    if (!result.ok) setMessage(result.message);
+    setLoading(false);
+  }
+
+  return (
+    <Modal title="선택 게시글 삭제" onClose={onClose}>
+      <form className="delete-confirm-form" onSubmit={submit}>
+        <div className="delete-warning">
+          <Trash2 size={20} />
+          <strong>선택한 게시글 {count}개를 삭제합니다.</strong>
           <p>삭제하려면 등록된 계정의 이메일과 비밀번호를 입력해주세요.</p>
         </div>
         <label>
@@ -2064,31 +2106,6 @@ function DeleteSnapshotModal({ month, onClose, onConfirm }) {
           </button>
         </div>
       </form>
-    </Modal>
-  );
-}
-
-function ConfirmModal({ title, message, confirmLabel, tone = 'normal', onClose, onConfirm }) {
-  const [loading, setLoading] = useState(false);
-
-  async function confirm() {
-    setLoading(true);
-    await onConfirm();
-    setLoading(false);
-  }
-
-  return (
-    <Modal title={title} onClose={onClose}>
-      <div className="confirm-box">
-        <p>{message}</p>
-        <div className="modal-actions">
-          <button className="secondary-button" type="button" onClick={onClose}>취소</button>
-          <button className={tone === 'danger' ? 'danger-button solid' : 'primary-button'} type="button" onClick={confirm} disabled={loading}>
-            {loading ? <Loader2 className="spin" size={17} /> : <Trash2 size={17} />}
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
     </Modal>
   );
 }

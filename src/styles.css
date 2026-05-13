@@ -1250,18 +1250,6 @@ h2 {
   color: #ffffff;
 }
 
-.confirm-box {
-  display: grid;
-  gap: 18px;
-}
-
-.confirm-box p {
-  margin: 0;
-  color: #526055;
-  font-weight: 800;
-  line-height: 1.6;
-}
-
 .tip-editor-shell {
   min-height: 360px;
   border: 1px solid rgba(24, 32, 27, 0.1);
