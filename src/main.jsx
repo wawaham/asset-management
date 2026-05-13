@@ -1716,7 +1716,7 @@ function LtvCalculator() {
           <div><strong>70%</strong><span>LTV</span></div>
           <div><strong>6억</strong><span>최대 한도</span></div>
           <div><strong>40%</strong><span>DSR</span></div>
-          <div><strong>+1.5%</strong><span>스트레스</span></div>
+          <div className="stress-rule-card"><strong>+1.5%</strong><span>스트레스 DSR</span></div>
         </div>
       </div>
 
