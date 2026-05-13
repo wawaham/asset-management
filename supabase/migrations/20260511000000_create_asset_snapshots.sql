@@ -84,10 +84,14 @@ create table if not exists public.real_estate_tips (
   title text not null,
   excerpt text,
   content text not null default '<p></p>',
+  is_pinned boolean not null default false,
   author_email text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.real_estate_tips
+  add column if not exists is_pinned boolean not null default false;
 
 alter table public.real_estate_tips enable row level security;
 

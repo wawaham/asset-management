@@ -923,32 +923,34 @@ h2 {
   gap: 10px;
 }
 
-.tips-list button {
+.tip-list-card {
+  position: relative;
   display: grid;
   align-content: start;
   gap: 7px;
-  width: 100%;
   min-height: 168px;
   padding: 15px;
   border: 1px solid rgba(24, 32, 27, 0.08);
   border-radius: 8px;
   background: #fbfcf8;
+  cursor: pointer;
   text-align: left;
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
-.tips-list button:hover,
-.tips-list button.active {
+.tip-list-card:hover,
+.tip-list-card.active {
   border-color: rgba(35, 110, 105, 0.28);
   box-shadow: 0 14px 30px rgba(30, 44, 34, 0.1);
   transform: translateY(-1px);
 }
 
-.tips-list button.active {
+.tip-list-card.active {
   background: #eef4ef;
 }
 
 .tips-list strong {
+  padding-right: 38px;
   font-size: 17px;
 }
 
@@ -963,6 +965,26 @@ h2 {
   color: #7a857b;
   font-size: 12px;
   font-weight: 850;
+}
+
+.tip-heart {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(197, 69, 63, 0.14);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #9aa29b;
+}
+
+.tip-heart:hover,
+.tip-heart.active {
+  background: #fff1ed;
+  color: #c93a32;
 }
 
 .tips-pagination {
@@ -992,6 +1014,33 @@ h2 {
 .tips-pagination button:disabled {
   cursor: not-allowed;
   opacity: 0.42;
+}
+
+.app-toast {
+  position: fixed;
+  z-index: 160;
+  right: 24px;
+  bottom: 24px;
+  padding: 13px 16px;
+  border: 1px solid rgba(24, 32, 27, 0.1);
+  border-radius: 8px;
+  background: #143f3d;
+  box-shadow: 0 18px 44px rgba(10, 18, 13, 0.24);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 950;
+  animation: toast-in 180ms ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .tip-actions {

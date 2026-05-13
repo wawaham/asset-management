@@ -17,6 +17,7 @@ import {
   Edit3,
   Eye,
   FileText,
+  Heart,
   Home,
   ImagePlus,
   Landmark,
@@ -1079,6 +1080,7 @@ function TipsBoard({ session }) {
   const [deletePost, setDeletePost] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [toast, setToast] = useState('');
   const postsPerPage = 8;
   const totalPostPages = Math.max(1, Math.ceil(posts.length / postsPerPage));
   const visiblePosts = posts.slice((postPage - 1) * postsPerPage, postPage * postsPerPage);
@@ -1091,6 +1093,12 @@ function TipsBoard({ session }) {
     setPostPage((current) => Math.min(current, totalPostPages));
   }, [totalPostPages]);
 
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = setTimeout(() => setToast(''), 2400);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
   async function loadPosts() {
     if (!isSupabaseReady) {
       setMessage('Supabase 연결 후 게시글을 저장할 수 있습니다.');
@@ -1101,6 +1109,7 @@ function TipsBoard({ session }) {
     const { data, error } = await supabase
       .from('real_estate_tips')
       .select('*')
+      .order('is_pinned', { ascending: false })
       .order('updated_at', { ascending: false });
 
     if (error) {
@@ -1122,18 +1131,16 @@ function TipsBoard({ session }) {
     return { ok: true };
   }
 
-  async function savePost({ post, email, password }) {
-    const auth = await verifyCredential({ email, password });
-    if (!auth.ok) return auth;
-
+  async function savePost({ post }) {
     const payload = {
       title: post.title.trim(),
       excerpt: stripHtml(post.content).slice(0, 160),
       content: sanitizeEditorHtml(post.content),
-      author_email: email.trim(),
+      author_email: session?.user?.email || '',
       updated_at: new Date().toISOString(),
     };
 
+    const wasEditing = Boolean(editorPost?.id);
     const query = editorPost?.id
       ? supabase.from('real_estate_tips').update(payload).eq('id', editorPost.id).select().single()
       : supabase.from('real_estate_tips').insert({ ...payload, created_at: new Date().toISOString() }).select().single();
@@ -1144,8 +1151,26 @@ function TipsBoard({ session }) {
     await loadPosts();
     setSelectedPost(null);
     setEditorPost(null);
-    setMessage(editorPost?.id ? '게시글을 수정했습니다.' : '게시글을 저장했습니다.');
+    setMessage(wasEditing ? '게시글을 수정했습니다.' : '게시글을 저장했습니다.');
+    setToast(wasEditing ? '수정 완료' : '작성 완료');
     return { ok: true };
+  }
+
+  async function togglePinned(post) {
+    const { data, error } = await supabase
+      .from('real_estate_tips')
+      .update({ is_pinned: !post.is_pinned, updated_at: new Date().toISOString() })
+      .eq('id', post.id)
+      .select()
+      .single();
+    if (error) {
+      setToast(`하트 변경 실패: ${error.message}`);
+      return;
+    }
+    setPosts((current) => current
+      .map((item) => (item.id === data.id ? data : item))
+      .sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned) || new Date(b.updated_at) - new Date(a.updated_at)));
+    setToast(data.is_pinned ? '상단 고정했어요' : '상단 고정을 해제했어요');
   }
 
   async function removePost({ email, password }) {
@@ -1159,6 +1184,7 @@ function TipsBoard({ session }) {
     if (selectedPost?.id === deletePost.id) setSelectedPost(null);
     setDeletePost(null);
     setMessage('게시글을 삭제했습니다.');
+    setToast('삭제 완료');
     return { ok: true };
   }
 
@@ -1200,15 +1226,26 @@ function TipsBoard({ session }) {
             {posts.length === 0 ? (
               <p className="empty">글 작성 버튼을 눌러 첫 꿀팁을 남겨보세요.</p>
             ) : visiblePosts.map((post) => (
-              <button
+              <article
                 key={post.id}
-                className={selectedPost?.id === post.id ? 'active' : ''}
+                className={`tip-list-card ${selectedPost?.id === post.id ? 'active' : ''}`}
                 onClick={() => setSelectedPost(post)}
               >
+                <button
+                  type="button"
+                  className={`tip-heart ${post.is_pinned ? 'active' : ''}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    togglePinned(post);
+                  }}
+                  title={post.is_pinned ? '상단 고정 해제' : '상단에 고정'}
+                >
+                  <Heart size={17} fill={post.is_pinned ? 'currentColor' : 'none'} />
+                </button>
                 <strong>{post.title}</strong>
                 <span>{post.excerpt || '내용 미리보기가 없습니다.'}</span>
                 <small>{formatDateTime(post.updated_at)}</small>
-              </button>
+              </article>
             ))}
           </div>
           {posts.length > postsPerPage && (
@@ -1252,6 +1289,7 @@ function TipsBoard({ session }) {
           onConfirm={removePost}
         />
       )}
+      {toast && <div className="app-toast">{toast}</div>}
     </section>
   );
 }
@@ -1283,8 +1321,6 @@ function TipDetailModal({ post, onClose, onEdit, onDelete }) {
 
 function TipEditorPage({ session, post, onClose, onSubmit }) {
   const [title, setTitle] = useState(post.title || '');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -1338,8 +1374,6 @@ function TipEditorPage({ session, post, onClose, onSubmit }) {
     setMessage('');
     const result = await onSubmit({
       post: { title, content: editor?.getHTML() || emptyTipContent },
-      email,
-      password,
     });
     if (!result.ok) setMessage(result.message);
     setSaving(false);
@@ -1377,17 +1411,6 @@ function TipEditorPage({ session, post, onClose, onSubmit }) {
 
         <div className="tip-editor-shell">
           <EditorContent editor={editor} />
-        </div>
-
-        <div className="credential-grid">
-          <label>
-            이메일
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required />
-          </label>
-          <label>
-            비밀번호
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Supabase Auth 비밀번호" required />
-          </label>
         </div>
         {message && <p className="auth-message">{message}</p>}
         <div className="modal-actions">
