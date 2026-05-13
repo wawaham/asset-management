@@ -860,8 +860,9 @@ h2 {
 }
 
 .tips-hero,
-.tips-list-panel,
-.tip-detail-panel {
+.tips-list-page,
+.tip-detail-panel,
+.tip-editor-page {
   border: 1px solid rgba(24, 32, 27, 0.08);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.84);
@@ -888,15 +889,9 @@ h2 {
   line-height: 1.65;
 }
 
-.tips-layout {
-  display: grid;
-  grid-template-columns: 380px minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.tips-list-panel,
-.tip-detail-panel {
+.tips-list-page,
+.tip-detail-panel,
+.tip-editor-page {
   padding: 18px;
 }
 
@@ -924,13 +919,16 @@ h2 {
 
 .tips-list {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
 .tips-list button {
   display: grid;
+  align-content: start;
   gap: 7px;
   width: 100%;
+  min-height: 168px;
   padding: 15px;
   border: 1px solid rgba(24, 32, 27, 0.08);
   border-radius: 8px;
@@ -1002,25 +1000,6 @@ h2 {
   gap: 8px;
 }
 
-.tip-empty {
-  display: grid;
-  min-height: 420px;
-  place-items: center;
-  align-content: center;
-  gap: 10px;
-  color: #526055;
-  text-align: center;
-}
-
-.tip-empty svg {
-  width: 64px;
-  height: 64px;
-  padding: 14px;
-  border-radius: 8px;
-  background: rgba(35, 110, 105, 0.1);
-  color: #236e69;
-}
-
 .tip-content {
   color: #18201b;
   line-height: 1.75;
@@ -1051,8 +1030,22 @@ h2 {
   box-shadow: 0 14px 34px rgba(30, 44, 34, 0.1);
 }
 
-.modal-panel.editor {
-  width: min(1040px, 100%);
+.modal-panel.tip-detail {
+  width: min(1120px, 92vw);
+  max-height: 90vh;
+  padding: 28px;
+}
+
+.tip-editor-page {
+  display: grid;
+  gap: 18px;
+}
+
+.tip-editor-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .tip-editor-form {
@@ -2117,9 +2110,12 @@ h2 {
   }
 
   .ltv-hero,
-  .ltv-layout,
-  .tips-layout {
+  .ltv-layout {
     grid-template-columns: 1fr;
+  }
+
+  .tips-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ltv-controls {
@@ -2166,7 +2162,8 @@ h2 {
 
   .tips-hero,
   .tips-list-head,
-  .tip-detail-head {
+  .tip-detail-head,
+  .tip-editor-page-head {
     align-items: stretch;
     flex-direction: column;
   }
@@ -2285,7 +2282,8 @@ h2 {
   }
 
   .ltv-rule-grid,
-  .ltv-summary-grid {
+  .ltv-summary-grid,
+  .tips-list {
     grid-template-columns: 1fr;
   }
 

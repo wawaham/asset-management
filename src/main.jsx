@@ -1142,7 +1142,7 @@ function TipsBoard({ session }) {
     if (error) return { ok: false, message: `저장 실패: ${error.message}` };
 
     await loadPosts();
-    setSelectedPost(data);
+    setSelectedPost(null);
     setEditorPost(null);
     setMessage(editorPost?.id ? '게시글을 수정했습니다.' : '게시글을 저장했습니다.');
     return { ok: true };
@@ -1162,6 +1162,17 @@ function TipsBoard({ session }) {
     return { ok: true };
   }
 
+  if (editorPost) {
+    return (
+      <TipEditorPage
+        session={session}
+        post={editorPost}
+        onClose={() => setEditorPost(null)}
+        onSubmit={savePost}
+      />
+    );
+  }
+
   return (
     <section className="tips-page">
       <div className="tips-hero">
@@ -1176,8 +1187,7 @@ function TipsBoard({ session }) {
         </button>
       </div>
 
-      <div className="tips-layout">
-        <section className="tips-list-panel">
+      <section className="tips-list-page">
           <div className="tips-list-head">
             <div>
               <p className="section-kicker">Saved Tips</p>
@@ -1224,46 +1234,14 @@ function TipsBoard({ session }) {
             <Database size={15} />
             {message || `${session?.user?.email || ''} 계정으로 연결되었습니다.`}
           </p>
-        </section>
+      </section>
 
-        <section className="tip-detail-panel">
-          {selectedPost ? (
-            <>
-              <div className="tip-detail-head">
-                <div>
-                  <p className="section-kicker">{formatDateTime(selectedPost.updated_at)}</p>
-                  <h2>{selectedPost.title}</h2>
-                  <span>{selectedPost.author_email}</span>
-                </div>
-                <div className="tip-actions">
-                  <button className="secondary-button" onClick={() => setEditorPost(selectedPost)}>
-                    <Edit3 size={16} />
-                    수정
-                  </button>
-                  <button className="danger-button" onClick={() => setDeletePost(selectedPost)}>
-                    <Trash2 size={16} />
-                    삭제
-                  </button>
-                </div>
-              </div>
-              <article className="tip-content" dangerouslySetInnerHTML={{ __html: sanitizeEditorHtml(selectedPost.content) }} />
-            </>
-          ) : (
-            <div className="tip-empty">
-              <FileText size={42} />
-              <h2>글을 선택해주세요</h2>
-              <p>왼쪽 리스트에서 글을 열거나 새 글을 작성하면 상세 내용이 표시됩니다.</p>
-            </div>
-          )}
-        </section>
-      </div>
-
-      {editorPost && (
-        <TipEditorModal
-          session={session}
-          post={editorPost}
-          onClose={() => setEditorPost(null)}
-          onSubmit={savePost}
+      {selectedPost && (
+        <TipDetailModal
+          post={selectedPost}
+          onClose={() => setSelectedPost(null)}
+          onEdit={() => setEditorPost(selectedPost)}
+          onDelete={() => setDeletePost(selectedPost)}
         />
       )}
 
@@ -1278,7 +1256,32 @@ function TipsBoard({ session }) {
   );
 }
 
-function TipEditorModal({ session, post, onClose, onSubmit }) {
+function TipDetailModal({ post, onClose, onEdit, onDelete }) {
+  return (
+    <Modal title="" size="tip-detail" onClose={onClose}>
+      <div className="tip-detail-head">
+        <div>
+          <p className="section-kicker">{formatDateTime(post.updated_at)}</p>
+          <h2>{post.title}</h2>
+          <span>{post.author_email}</span>
+        </div>
+        <div className="tip-actions">
+          <button className="secondary-button" onClick={onEdit}>
+            <Edit3 size={16} />
+            수정
+          </button>
+          <button className="danger-button" onClick={onDelete}>
+            <Trash2 size={16} />
+            삭제
+          </button>
+        </div>
+      </div>
+      <article className="tip-content" dangerouslySetInnerHTML={{ __html: sanitizeEditorHtml(post.content) }} />
+    </Modal>
+  );
+}
+
+function TipEditorPage({ session, post, onClose, onSubmit }) {
   const [title, setTitle] = useState(post.title || '');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -1343,7 +1346,17 @@ function TipEditorModal({ session, post, onClose, onSubmit }) {
   }
 
   return (
-    <Modal title={post.id ? '게시글 수정' : '게시글 작성'} size="wide editor" onClose={onClose}>
+    <section className="tip-editor-page">
+      <div className="tip-editor-page-head">
+        <div>
+          <p className="section-kicker">Real Estate Editor</p>
+          <h2>{post.id ? '게시글 수정' : '게시글 작성'}</h2>
+        </div>
+        <button className="secondary-button" onClick={onClose} type="button">
+          <X size={17} />
+          목록으로
+        </button>
+      </div>
       <form className="tip-editor-form" onSubmit={submit}>
         <label>
           제목
@@ -1385,7 +1398,7 @@ function TipEditorModal({ session, post, onClose, onSubmit }) {
           </button>
         </div>
       </form>
-    </Modal>
+    </section>
   );
 }
 
