@@ -1076,11 +1076,13 @@ function TipsBoard({ session }) {
   const [posts, setPosts] = useState([]);
   const [postPage, setPostPage] = useState(1);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [checkedPostIds, setCheckedPostIds] = useState([]);
   const [editorPost, setEditorPost] = useState(null);
   const [deletePost, setDeletePost] = useState(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState(null);
   const postsPerPage = 8;
   const totalPostPages = Math.max(1, Math.ceil(posts.length / postsPerPage));
   const visiblePosts = posts.slice((postPage - 1) * postsPerPage, postPage * postsPerPage);
@@ -1095,9 +1097,13 @@ function TipsBoard({ session }) {
 
   useEffect(() => {
     if (!toast) return undefined;
-    const timer = setTimeout(() => setToast(''), 2400);
+    const timer = setTimeout(() => setToast(null), 2400);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  function showToast(message, type = 'success') {
+    setToast({ message, type });
+  }
 
   async function loadPosts() {
     if (!isSupabaseReady) {
@@ -1152,7 +1158,7 @@ function TipsBoard({ session }) {
     setSelectedPost(null);
     setEditorPost(null);
     setMessage(wasEditing ? '게시글을 수정했습니다.' : '게시글을 저장했습니다.');
-    setToast(wasEditing ? '수정 완료' : '작성 완료');
+    showToast(wasEditing ? '수정 완료' : '작성 완료', wasEditing ? 'info' : 'success');
     return { ok: true };
   }
 
@@ -1164,13 +1170,13 @@ function TipsBoard({ session }) {
       .select()
       .single();
     if (error) {
-      setToast(`하트 변경 실패: ${error.message}`);
+      showToast(`하트 변경 실패: ${error.message}`, 'error');
       return;
     }
     setPosts((current) => current
       .map((item) => (item.id === data.id ? data : item))
       .sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned) || new Date(b.updated_at) - new Date(a.updated_at)));
-    setToast(data.is_pinned ? '상단 고정했어요' : '상단 고정을 해제했어요');
+    showToast(data.is_pinned ? '상단 고정했어요' : '상단 고정을 해제했어요', 'info');
   }
 
   async function removePost({ email, password }) {
@@ -1182,10 +1188,32 @@ function TipsBoard({ session }) {
 
     await loadPosts();
     if (selectedPost?.id === deletePost.id) setSelectedPost(null);
+    setCheckedPostIds((current) => current.filter((id) => id !== deletePost.id));
     setDeletePost(null);
     setMessage('게시글을 삭제했습니다.');
-    setToast('삭제 완료');
+    showToast('삭제 완료', 'danger');
     return { ok: true };
+  }
+
+  async function removeSelectedPosts() {
+    const { error } = await supabase.from('real_estate_tips').delete().in('id', checkedPostIds);
+    if (error) {
+      showToast(`선택 삭제 실패: ${error.message}`, 'error');
+      return;
+    }
+
+    await loadPosts();
+    if (selectedPost && checkedPostIds.includes(selectedPost.id)) setSelectedPost(null);
+    setCheckedPostIds([]);
+    setBulkDeleteOpen(false);
+    setMessage('선택한 게시글을 삭제했습니다.');
+    showToast('선택 삭제 완료', 'danger');
+  }
+
+  function toggleCheckedPost(id) {
+    setCheckedPostIds((current) => (
+      current.includes(id) ? current.filter((postId) => postId !== id) : [...current, id]
+    ));
   }
 
   if (editorPost) {
@@ -1220,17 +1248,43 @@ function TipsBoard({ session }) {
               <h3>작성한 리스트</h3>
               <span className="tips-count">총 {posts.length}개 · {postPage}/{totalPostPages}페이지</span>
             </div>
+            <div className="tips-list-actions">
+              <button className="primary-button" onClick={() => setEditorPost({ title: '', content: emptyTipContent })}>
+                <Plus size={17} />
+                글 작성
+              </button>
+              <button className="danger-button" onClick={() => setBulkDeleteOpen(true)} disabled={checkedPostIds.length === 0}>
+                <Trash2 size={17} />
+                선택 삭제 {checkedPostIds.length ? checkedPostIds.length : ''}
+              </button>
+            </div>
             {loading && <Loader2 className="spin" size={18} />}
           </div>
           <div className="tips-list">
             {posts.length === 0 ? (
-              <p className="empty">글 작성 버튼을 눌러 첫 꿀팁을 남겨보세요.</p>
+              <div className="tips-empty-card">
+                <FileText size={42} />
+                <h3>아직 저장된 꿀팁이 없습니다</h3>
+                <p>청약 조건, 대출 메모, 계약 체크리스트처럼 다시 볼 내용을 첫 글로 남겨보세요.</p>
+                <button className="primary-button" onClick={() => setEditorPost({ title: '', content: emptyTipContent })}>
+                  <Plus size={17} />
+                  첫 글 작성
+                </button>
+              </div>
             ) : visiblePosts.map((post) => (
               <article
                 key={post.id}
                 className={`tip-list-card ${selectedPost?.id === post.id ? 'active' : ''}`}
                 onClick={() => setSelectedPost(post)}
               >
+                <label className="tip-check" onClick={(event) => event.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={checkedPostIds.includes(post.id)}
+                    onChange={() => toggleCheckedPost(post.id)}
+                  />
+                  <span />
+                </label>
                 <button
                   type="button"
                   className={`tip-heart ${post.is_pinned ? 'active' : ''}`}
@@ -1289,7 +1343,17 @@ function TipsBoard({ session }) {
           onConfirm={removePost}
         />
       )}
-      {toast && <div className="app-toast">{toast}</div>}
+      {bulkDeleteOpen && (
+        <ConfirmModal
+          title="선택 게시글 삭제"
+          message={`선택한 게시글 ${checkedPostIds.length}개를 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
+          confirmLabel="삭제"
+          tone="danger"
+          onClose={() => setBulkDeleteOpen(false)}
+          onConfirm={removeSelectedPosts}
+        />
+      )}
+      {toast && <div className={`app-toast ${toast.type}`}>{toast.message}</div>}
     </section>
   );
 }
@@ -2000,6 +2064,31 @@ function DeleteSnapshotModal({ month, onClose, onConfirm }) {
           </button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function ConfirmModal({ title, message, confirmLabel, tone = 'normal', onClose, onConfirm }) {
+  const [loading, setLoading] = useState(false);
+
+  async function confirm() {
+    setLoading(true);
+    await onConfirm();
+    setLoading(false);
+  }
+
+  return (
+    <Modal title={title} onClose={onClose}>
+      <div className="confirm-box">
+        <p>{message}</p>
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose}>취소</button>
+          <button className={tone === 'danger' ? 'danger-button solid' : 'primary-button'} type="button" onClick={confirm} disabled={loading}>
+            {loading ? <Loader2 className="spin" size={17} /> : <Trash2 size={17} />}
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
     </Modal>
   );
 }
