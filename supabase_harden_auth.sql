@@ -71,3 +71,45 @@ on public.asset_activity_logs
 for insert
 to authenticated
 with check (auth.uid() is not null);
+
+create table if not exists public.real_estate_tips (
+  id bigint generated always as identity primary key,
+  title text not null,
+  excerpt text,
+  content text not null default '<p></p>',
+  author_email text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.real_estate_tips enable row level security;
+
+drop policy if exists "Allow authenticated read real estate tips" on public.real_estate_tips;
+drop policy if exists "Allow authenticated insert real estate tips" on public.real_estate_tips;
+drop policy if exists "Allow authenticated update real estate tips" on public.real_estate_tips;
+drop policy if exists "Allow authenticated delete real estate tips" on public.real_estate_tips;
+
+create policy "Allow authenticated read real estate tips"
+on public.real_estate_tips
+for select
+to authenticated
+using (auth.uid() is not null);
+
+create policy "Allow authenticated insert real estate tips"
+on public.real_estate_tips
+for insert
+to authenticated
+with check (auth.uid() is not null);
+
+create policy "Allow authenticated update real estate tips"
+on public.real_estate_tips
+for update
+to authenticated
+using (auth.uid() is not null)
+with check (auth.uid() is not null);
+
+create policy "Allow authenticated delete real estate tips"
+on public.real_estate_tips
+for delete
+to authenticated
+using (auth.uid() is not null);

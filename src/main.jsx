@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { EditorContent, useEditor } from '@tiptap/react';
+import Image from '@tiptap/extension-image';
+import StarterKit from '@tiptap/starter-kit';
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -11,8 +14,11 @@ import {
   CircleHelp,
   CircleDollarSign,
   Database,
+  Edit3,
   Eye,
+  FileText,
   Home,
+  ImagePlus,
   Landmark,
   LineChart,
   Loader2,
@@ -59,6 +65,7 @@ const ltvRatio = 0.7;
 const ltvMaxLoan = 600000000;
 const dsrRatio = 0.4;
 const stressRateAdd = 1.5;
+const emptyTipContent = '<p></p>';
 
 const aprilRows = [
   { owner: '인웅', category: '청년도약계좌', amount: 0.077 * hundredMillion },
@@ -222,6 +229,37 @@ function calculateLoanLimit({ homePrice, annualIncome, annualRate, years, method
     bottleneck: ltvLimit <= dsrLimit ? 'LTV' : 'DSR',
     dsrRate,
   };
+}
+
+function stripHtml(html) {
+  const doc = new DOMParser().parseFromString(html || '', 'text/html');
+  return doc.body.textContent?.replace(/\s+/g, ' ').trim() || '';
+}
+
+function sanitizeEditorHtml(html) {
+  const doc = new DOMParser().parseFromString(html || emptyTipContent, 'text/html');
+  doc.querySelectorAll('script, iframe, object, embed, link, style').forEach((node) => node.remove());
+  doc.body.querySelectorAll('*').forEach((node) => {
+    [...node.attributes].forEach((attribute) => {
+      const name = attribute.name.toLowerCase();
+      const value = attribute.value.toLowerCase();
+      if (name.startsWith('on') || value.includes('javascript:')) {
+        node.removeAttribute(attribute.name);
+      }
+    });
+  });
+  return doc.body.innerHTML || emptyTipContent;
+}
+
+function formatDateTime(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 }
 
 function formatAxisAmount(value) {
@@ -476,6 +514,11 @@ function App() {
     .sort(([, a], [, b]) => b - a)
     .filter(([, amount]) => amount > 0);
   const maxCategory = Math.max(...categoryEntries.map(([, amount]) => amount), 1);
+  const pageTitles = {
+    assets: '월별 자산 현황',
+    ltv: 'LTV 계산기',
+    tips: '부동산 꿀팁',
+  };
 
   function loadLocalSnapshots() {
     const stored = localStorage.getItem(storageKey);
@@ -678,7 +721,7 @@ function App() {
           <p className="eyebrow">
             <Sparkles size={15} /> 인웅 · 운정
           </p>
-          <h1>{page === 'assets' ? '월별 자산 현황' : 'LTV 계산기'}</h1>
+          <h1>{pageTitles[page]}</h1>
         </div>
         <div className="top-actions">
           <nav className={`page-tabs ${page}-active`} aria-label="페이지 이동">
@@ -689,6 +732,10 @@ function App() {
             <button className={page === 'ltv' ? 'active' : ''} onClick={() => setPage('ltv')}>
               <Calculator size={16} />
               LTV 계산기
+            </button>
+            <button className={page === 'tips' ? 'active' : ''} onClick={() => setPage('tips')}>
+              <FileText size={16} />
+              부동산 꿀팁
             </button>
           </nav>
           {page === 'assets' && <MonthPicker value={month} snapshots={snapshots} onChange={setMonth} />}
@@ -840,8 +887,10 @@ function App() {
       )}
 
         </>
-      ) : (
+      ) : page === 'ltv' ? (
         <LtvCalculator />
+      ) : (
+        <TipsBoard session={session} />
       )}
     </main>
   );
@@ -1010,6 +1059,320 @@ function AnimatedWon({ value }) {
   }, [value]);
 
   return <span className="ticker-number">{formatWon(displayValue)}</span>;
+}
+
+function TipsBoard({ session }) {
+  const [posts, setPosts] = useState([]);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [editorPost, setEditorPost] = useState(null);
+  const [deletePost, setDeletePost] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    loadPosts();
+  }, []);
+
+  async function loadPosts() {
+    if (!isSupabaseReady) {
+      setMessage('Supabase 연결 후 게시글을 저장할 수 있습니다.');
+      return;
+    }
+
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('real_estate_tips')
+      .select('*')
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      setMessage(`게시글을 불러오지 못했습니다. Supabase SQL을 실행했는지 확인해주세요. (${error.message})`);
+    } else {
+      setPosts(data || []);
+      setMessage(data?.length ? '게시글을 불러왔습니다.' : '아직 작성된 글이 없습니다.');
+    }
+    setLoading(false);
+  }
+
+  async function verifyCredential({ email, password }) {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error) return { ok: false, message: '이메일 또는 비밀번호가 맞지 않습니다.' };
+    return { ok: true };
+  }
+
+  async function savePost({ post, email, password }) {
+    const auth = await verifyCredential({ email, password });
+    if (!auth.ok) return auth;
+
+    const payload = {
+      title: post.title.trim(),
+      excerpt: stripHtml(post.content).slice(0, 160),
+      content: sanitizeEditorHtml(post.content),
+      author_email: email.trim(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const query = editorPost?.id
+      ? supabase.from('real_estate_tips').update(payload).eq('id', editorPost.id).select().single()
+      : supabase.from('real_estate_tips').insert({ ...payload, created_at: new Date().toISOString() }).select().single();
+
+    const { data, error } = await query;
+    if (error) return { ok: false, message: `저장 실패: ${error.message}` };
+
+    await loadPosts();
+    setSelectedPost(data);
+    setEditorPost(null);
+    setMessage(editorPost?.id ? '게시글을 수정했습니다.' : '게시글을 저장했습니다.');
+    return { ok: true };
+  }
+
+  async function removePost({ email, password }) {
+    const auth = await verifyCredential({ email, password });
+    if (!auth.ok) return auth;
+
+    const { error } = await supabase.from('real_estate_tips').delete().eq('id', deletePost.id);
+    if (error) return { ok: false, message: `삭제 실패: ${error.message}` };
+
+    await loadPosts();
+    if (selectedPost?.id === deletePost.id) setSelectedPost(null);
+    setDeletePost(null);
+    setMessage('게시글을 삭제했습니다.');
+    return { ok: true };
+  }
+
+  return (
+    <section className="tips-page">
+      <div className="tips-hero">
+        <div>
+          <p className="section-kicker">Real Estate Notes</p>
+          <h2>부동산 꿀팁 보드</h2>
+          <p>청약, 대출, 계약, 세금처럼 다시 찾아볼 내용을 사진과 함께 정리해두는 공간입니다.</p>
+        </div>
+        <button className="primary-button" onClick={() => setEditorPost({ title: '', content: emptyTipContent })}>
+          <Plus size={17} />
+          글 작성
+        </button>
+      </div>
+
+      <div className="tips-layout">
+        <section className="tips-list-panel">
+          <div className="tips-list-head">
+            <div>
+              <p className="section-kicker">Saved Tips</p>
+              <h3>작성한 리스트</h3>
+            </div>
+            {loading && <Loader2 className="spin" size={18} />}
+          </div>
+          <div className="tips-list">
+            {posts.length === 0 ? (
+              <p className="empty">글 작성 버튼을 눌러 첫 꿀팁을 남겨보세요.</p>
+            ) : posts.map((post) => (
+              <button
+                key={post.id}
+                className={selectedPost?.id === post.id ? 'active' : ''}
+                onClick={() => setSelectedPost(post)}
+              >
+                <strong>{post.title}</strong>
+                <span>{post.excerpt || '내용 미리보기가 없습니다.'}</span>
+                <small>{formatDateTime(post.updated_at)}</small>
+              </button>
+            ))}
+          </div>
+          <p className="status-line">
+            <Database size={15} />
+            {message || `${session?.user?.email || ''} 계정으로 연결되었습니다.`}
+          </p>
+        </section>
+
+        <section className="tip-detail-panel">
+          {selectedPost ? (
+            <>
+              <div className="tip-detail-head">
+                <div>
+                  <p className="section-kicker">{formatDateTime(selectedPost.updated_at)}</p>
+                  <h2>{selectedPost.title}</h2>
+                  <span>{selectedPost.author_email}</span>
+                </div>
+                <div className="tip-actions">
+                  <button className="secondary-button" onClick={() => setEditorPost(selectedPost)}>
+                    <Edit3 size={16} />
+                    수정
+                  </button>
+                  <button className="danger-button" onClick={() => setDeletePost(selectedPost)}>
+                    <Trash2 size={16} />
+                    삭제
+                  </button>
+                </div>
+              </div>
+              <article className="tip-content" dangerouslySetInnerHTML={{ __html: sanitizeEditorHtml(selectedPost.content) }} />
+            </>
+          ) : (
+            <div className="tip-empty">
+              <FileText size={42} />
+              <h2>글을 선택해주세요</h2>
+              <p>왼쪽 리스트에서 글을 열거나 새 글을 작성하면 상세 내용이 표시됩니다.</p>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {editorPost && (
+        <TipEditorModal
+          post={editorPost}
+          onClose={() => setEditorPost(null)}
+          onSubmit={savePost}
+        />
+      )}
+
+      {deletePost && (
+        <TipDeleteModal
+          post={deletePost}
+          onClose={() => setDeletePost(null)}
+          onConfirm={removePost}
+        />
+      )}
+    </section>
+  );
+}
+
+function TipEditorModal({ post, onClose, onSubmit }) {
+  const [title, setTitle] = useState(post.title || '');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef(null);
+  const editor = useEditor({
+    extensions: [StarterKit, Image.configure({ inline: false, allowBase64: true })],
+    content: post.content || emptyTipContent,
+    editorProps: {
+      attributes: {
+        class: 'tip-editor-content',
+      },
+    },
+  });
+
+  async function addImage(event) {
+    const file = event.target.files?.[0];
+    if (!file || !editor) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      editor.chain().focus().setImage({ src: reader.result }).run();
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!title.trim()) {
+      setMessage('제목을 입력해주세요.');
+      return;
+    }
+
+    setSaving(true);
+    setMessage('');
+    const result = await onSubmit({
+      post: { title, content: editor?.getHTML() || emptyTipContent },
+      email,
+      password,
+    });
+    if (!result.ok) setMessage(result.message);
+    setSaving(false);
+  }
+
+  return (
+    <Modal title={post.id ? '게시글 수정' : '게시글 작성'} size="wide editor" onClose={onClose}>
+      <form className="tip-editor-form" onSubmit={submit}>
+        <label>
+          제목
+          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="예: 신혼부부 특공 체크리스트" />
+        </label>
+
+        <div className="tip-editor-toolbar">
+          <button type="button" className={editor?.isActive('bold') ? 'active' : ''} onClick={() => editor?.chain().focus().toggleBold().run()}>B</button>
+          <button type="button" className={editor?.isActive('italic') ? 'active' : ''} onClick={() => editor?.chain().focus().toggleItalic().run()}>I</button>
+          <button type="button" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>H2</button>
+          <button type="button" onClick={() => editor?.chain().focus().toggleBulletList().run()}>목록</button>
+          <button type="button" onClick={() => fileRef.current?.click()}>
+            <ImagePlus size={16} />
+            사진
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" onChange={addImage} hidden />
+        </div>
+
+        <div className="tip-editor-shell">
+          <EditorContent editor={editor} />
+        </div>
+
+        <div className="credential-grid">
+          <label>
+            이메일
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required />
+          </label>
+          <label>
+            비밀번호
+            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Supabase Auth 비밀번호" required />
+          </label>
+        </div>
+        {message && <p className="auth-message">{message}</p>}
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose}>취소</button>
+          <button className="primary-button" type="submit" disabled={saving}>
+            {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
+            저장
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function TipDeleteModal({ post, onClose, onConfirm }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    setLoading(true);
+    setMessage('');
+    const result = await onConfirm({ email, password });
+    if (!result.ok) setMessage(result.message);
+    setLoading(false);
+  }
+
+  return (
+    <Modal title="게시글 삭제" onClose={onClose}>
+      <form className="delete-confirm-form" onSubmit={submit}>
+        <div className="delete-warning">
+          <Trash2 size={20} />
+          <strong>{post.title}</strong>
+          <p>삭제하려면 등록된 계정의 이메일과 비밀번호를 입력해주세요.</p>
+        </div>
+        <label>
+          이메일
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required />
+        </label>
+        <label>
+          비밀번호
+          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="비밀번호" required />
+        </label>
+        {message && <p className="auth-message">{message}</p>}
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose}>취소</button>
+          <button className="danger-button solid" type="submit" disabled={loading}>
+            {loading ? <Loader2 className="spin" size={17} /> : <Trash2 size={17} />}
+            삭제
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
 }
 
 function FilterSelect({ label, value, options, onChange }) {

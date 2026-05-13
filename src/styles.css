@@ -192,7 +192,7 @@ h2 {
   top: 4px;
   bottom: 4px;
   left: 4px;
-  width: calc((100% - 8px) / 2);
+  width: calc((100% - 8px) / 3);
   border-radius: 7px;
   background: #143f3d;
   box-shadow: 0 10px 22px rgba(20, 63, 61, 0.16);
@@ -204,6 +204,10 @@ h2 {
   transform: translateX(100%);
 }
 
+.page-tabs.tips-active::before {
+  transform: translateX(200%);
+}
+
 .page-tabs button {
   position: relative;
   z-index: 1;
@@ -211,6 +215,7 @@ h2 {
   align-items: center;
   gap: 7px;
   min-height: 38px;
+  min-width: 112px;
   padding: 0 12px;
   border: 0;
   border-radius: 7px;
@@ -847,6 +852,247 @@ h2 {
 .limit-ltv {
   background: #f4f0ff;
   color: #6c4bd8;
+}
+
+.tips-page {
+  display: grid;
+  gap: 18px;
+}
+
+.tips-hero,
+.tips-list-panel,
+.tip-detail-panel {
+  border: 1px solid rgba(24, 32, 27, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 16px 36px rgba(30, 44, 34, 0.08);
+}
+
+.tips-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px;
+}
+
+.tips-hero h2 {
+  margin-bottom: 8px;
+  font-size: clamp(28px, 4vw, 44px);
+}
+
+.tips-hero p {
+  max-width: 720px;
+  margin: 0;
+  color: #526055;
+  line-height: 1.65;
+}
+
+.tips-layout {
+  display: grid;
+  grid-template-columns: 380px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.tips-list-panel,
+.tip-detail-panel {
+  padding: 18px;
+}
+
+.tips-list-head,
+.tip-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.tips-list-head h3,
+.tip-detail-head h2 {
+  margin: 0;
+}
+
+.tips-list {
+  display: grid;
+  gap: 10px;
+}
+
+.tips-list button {
+  display: grid;
+  gap: 7px;
+  width: 100%;
+  padding: 15px;
+  border: 1px solid rgba(24, 32, 27, 0.08);
+  border-radius: 8px;
+  background: #fbfcf8;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.tips-list button:hover,
+.tips-list button.active {
+  border-color: rgba(35, 110, 105, 0.28);
+  box-shadow: 0 14px 30px rgba(30, 44, 34, 0.1);
+  transform: translateY(-1px);
+}
+
+.tips-list button.active {
+  background: #eef4ef;
+}
+
+.tips-list strong {
+  font-size: 17px;
+}
+
+.tips-list span {
+  color: #526055;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.tips-list small,
+.tip-detail-head span {
+  color: #7a857b;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.tip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tip-empty {
+  display: grid;
+  min-height: 420px;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  color: #526055;
+  text-align: center;
+}
+
+.tip-empty svg {
+  width: 64px;
+  height: 64px;
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(35, 110, 105, 0.1);
+  color: #236e69;
+}
+
+.tip-content {
+  color: #18201b;
+  line-height: 1.75;
+}
+
+.tip-content h2,
+.tip-editor-content h2 {
+  margin: 24px 0 10px;
+  font-size: 26px;
+}
+
+.tip-content p,
+.tip-editor-content p {
+  margin: 0 0 14px;
+}
+
+.tip-content ul,
+.tip-editor-content ul {
+  margin: 0 0 16px 20px;
+}
+
+.tip-content img,
+.tip-editor-content img {
+  display: block;
+  max-width: 100%;
+  margin: 16px 0;
+  border-radius: 8px;
+  box-shadow: 0 14px 34px rgba(30, 44, 34, 0.1);
+}
+
+.modal-panel.editor {
+  width: min(1040px, 100%);
+}
+
+.tip-editor-form {
+  display: grid;
+  gap: 14px;
+}
+
+.tip-editor-form label,
+.credential-grid label {
+  display: grid;
+  gap: 8px;
+  color: #526055;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.tip-editor-form input,
+.credential-grid input {
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(24, 32, 27, 0.1);
+  border-radius: 8px;
+  outline: 0;
+  background: #fbfcf8;
+  color: #18201b;
+  font-weight: 850;
+}
+
+.tip-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(24, 32, 27, 0.08);
+  border-radius: 8px;
+  background: #f7f8f1;
+}
+
+.tip-editor-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(24, 32, 27, 0.08);
+  border-radius: 7px;
+  background: #ffffff;
+  color: #526055;
+  font-weight: 950;
+}
+
+.tip-editor-toolbar button:hover,
+.tip-editor-toolbar button.active {
+  border-color: rgba(35, 110, 105, 0.24);
+  background: #143f3d;
+  color: #ffffff;
+}
+
+.tip-editor-shell {
+  min-height: 360px;
+  border: 1px solid rgba(24, 32, 27, 0.1);
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.tip-editor-content {
+  min-height: 360px;
+  padding: 18px;
+  outline: 0;
+  line-height: 1.75;
+}
+
+.credential-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .editor-panel,
@@ -1834,7 +2080,8 @@ h2 {
   }
 
   .ltv-hero,
-  .ltv-layout {
+  .ltv-layout,
+  .tips-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1878,6 +2125,18 @@ h2 {
   .top-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .tips-hero,
+  .tips-list-head,
+  .tip-detail-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tip-actions,
+  .credential-grid {
+    grid-template-columns: 1fr;
   }
 
   .page-tabs {
