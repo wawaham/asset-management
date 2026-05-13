@@ -1348,7 +1348,12 @@ function TipsBoard({ session }) {
           onConfirm={removeSelectedPosts}
         />
       )}
-      {toast && <div className={`app-toast ${toast.type}`}>{toast.message}</div>}
+      {toast && (
+        <div className={`app-toast ${toast.type}`} role="status" aria-live="polite">
+          <span>{toast.message}</span>
+          <i aria-hidden="true" />
+        </div>
+      )}
     </section>
   );
 }
