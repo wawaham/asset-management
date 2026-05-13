@@ -66,6 +66,7 @@ const ltvMaxLoan = 600000000;
 const dsrRatio = 0.4;
 const stressRateAdd = 1.5;
 const emptyTipContent = '<p></p>';
+const tipImageBucket = 'tip-images';
 
 const aprilRows = [
   { owner: '인웅', category: '청년도약계좌', amount: 0.077 * hundredMillion },
@@ -260,6 +261,15 @@ function formatDateTime(value) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function safeFileName(name) {
+  return String(name || 'image')
+    .normalize('NFKD')
+    .replace(/[^\w.-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase();
 }
 
 function formatAxisAmount(value) {
@@ -1221,6 +1231,7 @@ function TipsBoard({ session }) {
 
       {editorPost && (
         <TipEditorModal
+          session={session}
           post={editorPost}
           onClose={() => setEditorPost(null)}
           onSubmit={savePost}
@@ -1238,15 +1249,16 @@ function TipsBoard({ session }) {
   );
 }
 
-function TipEditorModal({ post, onClose, onSubmit }) {
+function TipEditorModal({ session, post, onClose, onSubmit }) {
   const [title, setTitle] = useState(post.title || '');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const fileRef = useRef(null);
   const editor = useEditor({
-    extensions: [StarterKit, Image.configure({ inline: false, allowBase64: true })],
+    extensions: [StarterKit, Image.configure({ inline: false, allowBase64: false })],
     content: post.content || emptyTipContent,
     editorProps: {
       attributes: {
@@ -1258,11 +1270,28 @@ function TipEditorModal({ post, onClose, onSubmit }) {
   async function addImage(event) {
     const file = event.target.files?.[0];
     if (!file || !editor) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      editor.chain().focus().setImage({ src: reader.result }).run();
-    };
-    reader.readAsDataURL(file);
+    if (!session?.user?.id) {
+      setMessage('이미지를 올리려면 먼저 로그인되어 있어야 합니다.');
+      event.target.value = '';
+      return;
+    }
+
+    setUploadingImage(true);
+    setMessage('');
+    const extension = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+    const path = `${session.user.id}/${Date.now()}-${safeFileName(file.name || `image.${extension}`)}`;
+    const { error } = await supabase.storage.from(tipImageBucket).upload(path, file, {
+      cacheControl: '31536000',
+      upsert: false,
+    });
+
+    if (error) {
+      setMessage(`이미지 업로드 실패: ${error.message}. Supabase Storage SQL을 실행했는지 확인해주세요.`);
+    } else {
+      const { data } = supabase.storage.from(tipImageBucket).getPublicUrl(path);
+      editor.chain().focus().setImage({ src: data.publicUrl, alt: file.name }).run();
+    }
+    setUploadingImage(false);
     event.target.value = '';
   }
 
@@ -1298,7 +1327,7 @@ function TipEditorModal({ post, onClose, onSubmit }) {
           <button type="button" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>H2</button>
           <button type="button" onClick={() => editor?.chain().focus().toggleBulletList().run()}>목록</button>
           <button type="button" onClick={() => fileRef.current?.click()}>
-            <ImagePlus size={16} />
+            {uploadingImage ? <Loader2 className="spin" size={16} /> : <ImagePlus size={16} />}
             사진
           </button>
           <input ref={fileRef} type="file" accept="image/*" onChange={addImage} hidden />

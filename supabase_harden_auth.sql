@@ -113,3 +113,58 @@ on public.real_estate_tips
 for delete
 to authenticated
 using (auth.uid() is not null);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'tip-images',
+  'tip-images',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']::text[]
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Allow public read tip images" on storage.objects;
+drop policy if exists "Allow authenticated upload tip images" on storage.objects;
+drop policy if exists "Allow authenticated update own tip images" on storage.objects;
+drop policy if exists "Allow authenticated delete own tip images" on storage.objects;
+
+create policy "Allow public read tip images"
+on storage.objects
+for select
+to public
+using (bucket_id = 'tip-images');
+
+create policy "Allow authenticated upload tip images"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'tip-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Allow authenticated update own tip images"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'tip-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'tip-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Allow authenticated delete own tip images"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'tip-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
