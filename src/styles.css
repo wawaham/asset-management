@@ -1931,19 +1931,22 @@ h2 {
 
 .modal-backdrop {
   position: fixed;
-  z-index: 100;
+  z-index: 1000;
   inset: 0;
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(17, 25, 20, 0.36);
-  backdrop-filter: blur(8px);
+  min-width: 100vw;
+  min-height: 100dvh;
+  background: rgba(17, 25, 20, 0.48);
+  backdrop-filter: blur(10px);
   animation: backdrop-in 160ms ease both;
 }
 
 .modal-panel {
+  position: relative;
   width: min(620px, 100%);
-  max-height: min(760px, 86vh);
+  max-height: min(760px, calc(100dvh - 48px));
   overflow: auto;
   padding: 22px;
   border: 1px solid rgba(24, 32, 27, 0.1);
@@ -1984,7 +1987,9 @@ h2 {
 }
 
 .delete-warning {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
   gap: 12px;
   padding: 14px;
   border: 1px solid rgba(159, 53, 47, 0.14);
@@ -1993,10 +1998,18 @@ h2 {
   color: #9f352f;
 }
 
+.delete-warning svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
 .delete-warning strong {
   display: block;
   margin-bottom: 4px;
   color: #18201b;
+  font-size: 15px;
+  line-height: 1.45;
+  word-break: keep-all;
 }
 
 .delete-warning p {

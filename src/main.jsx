@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createPortal } from 'react-dom';
 import { EditorContent, useEditor } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import StarterKit from '@tiptap/starter-kit';
@@ -1547,8 +1548,10 @@ function CredentialDeleteModal({ title, headline, description, onClose, onConfir
       <form className="delete-confirm-form" onSubmit={submit}>
         <div className="delete-warning">
           <Trash2 size={20} />
-          <strong>{headline}</strong>
-          <p>{description}</p>
+          <div>
+            <strong>{headline}</strong>
+            <p>{description}</p>
+          </div>
         </div>
         <label>
           이메일
@@ -1988,7 +1991,7 @@ function CategoryBar({ category, amount, maxAmount, total, showPercent = false }
 }
 
 function Modal({ title, children, onClose, size = 'normal' }) {
-  return (
+  return createPortal(
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section className={`modal-panel ${size}`} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-head">
@@ -1999,7 +2002,8 @@ function Modal({ title, children, onClose, size = 'normal' }) {
         </div>
         {children}
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
 
