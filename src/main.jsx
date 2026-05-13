@@ -1219,6 +1219,10 @@ function TipsBoard({ session }) {
     ));
   }
 
+  function openNewPost() {
+    setEditorPost({ title: '', content: emptyTipContent });
+  }
+
   if (editorPost) {
     return (
       <TipEditorPage
@@ -1249,7 +1253,7 @@ function TipsBoard({ session }) {
             </div>
             {posts.length > 0 && (
               <div className="tips-list-actions">
-                <button className="primary-button" onClick={() => setEditorPost({ title: '', content: emptyTipContent })}>
+                <button className="primary-button" onClick={openNewPost}>
                   <Plus size={17} />
                   글 작성
                 </button>
@@ -1263,15 +1267,7 @@ function TipsBoard({ session }) {
           </div>
           <div className="tips-list">
             {posts.length === 0 ? (
-              <div className="tips-empty-card">
-                <FileText size={42} />
-                <h3>아직 저장된 꿀팁이 없습니다</h3>
-                <p>청약 조건, 대출 메모, 계약 체크리스트처럼 다시 볼 내용을 첫 글로 남겨보세요.</p>
-                <button className="primary-button" onClick={() => setEditorPost({ title: '', content: emptyTipContent })}>
-                  <Plus size={17} />
-                  첫 글 작성
-                </button>
-              </div>
+              <TipsEmptyState onCreate={openNewPost} />
             ) : visiblePosts.map((post) => (
               <article
                 key={post.id}
@@ -1353,6 +1349,26 @@ function TipsBoard({ session }) {
       )}
       {toast && <div className={`app-toast ${toast.type}`}>{toast.message}</div>}
     </section>
+  );
+}
+
+function TipsEmptyState({ onCreate }) {
+  return (
+    <div className="tips-empty-card">
+      <div className="empty-orbit" aria-hidden="true">
+        <span />
+        <span />
+        <FileText size={42} />
+      </div>
+      <p className="section-kicker">First Note</p>
+      <h3>아직 저장된 꿀팁이 없습니다</h3>
+      <p>청약 조건, 대출 메모, 계약 체크리스트처럼 다시 볼 내용을 첫 글로 남겨보세요.</p>
+      <button className="empty-create-button" onClick={onCreate}>
+        <Sparkles size={18} />
+        첫 글 작성
+        <ArrowUpRight size={17} />
+      </button>
+    </div>
   );
 }
 
@@ -1488,50 +1504,30 @@ function TipEditorPage({ session, post, onClose, onSubmit }) {
 }
 
 function TipDeleteModal({ post, onClose, onConfirm }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  async function submit(event) {
-    event.preventDefault();
-    setLoading(true);
-    setMessage('');
-    const result = await onConfirm({ email, password });
-    if (!result.ok) setMessage(result.message);
-    setLoading(false);
-  }
-
   return (
-    <Modal title="게시글 삭제" onClose={onClose}>
-      <form className="delete-confirm-form" onSubmit={submit}>
-        <div className="delete-warning">
-          <Trash2 size={20} />
-          <strong>{post.title}</strong>
-          <p>삭제하려면 등록된 계정의 이메일과 비밀번호를 입력해주세요.</p>
-        </div>
-        <label>
-          이메일
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" required />
-        </label>
-        <label>
-          비밀번호
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="비밀번호" required />
-        </label>
-        {message && <p className="auth-message">{message}</p>}
-        <div className="modal-actions">
-          <button className="secondary-button" type="button" onClick={onClose}>취소</button>
-          <button className="danger-button solid" type="submit" disabled={loading}>
-            {loading ? <Loader2 className="spin" size={17} /> : <Trash2 size={17} />}
-            삭제
-          </button>
-        </div>
-      </form>
-    </Modal>
+    <CredentialDeleteModal
+      title="게시글 삭제"
+      headline={post.title}
+      description="삭제하려면 등록된 계정의 이메일과 비밀번호를 입력해주세요."
+      onClose={onClose}
+      onConfirm={onConfirm}
+    />
   );
 }
 
 function TipBulkDeleteModal({ count, onClose, onConfirm }) {
+  return (
+    <CredentialDeleteModal
+      title="선택 게시글 삭제"
+      headline={`선택한 게시글 ${count}개를 삭제합니다.`}
+      description="삭제하려면 등록된 계정의 이메일과 비밀번호를 입력해주세요."
+      onClose={onClose}
+      onConfirm={onConfirm}
+    />
+  );
+}
+
+function CredentialDeleteModal({ title, headline, description, onClose, onConfirm }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -1547,12 +1543,12 @@ function TipBulkDeleteModal({ count, onClose, onConfirm }) {
   }
 
   return (
-    <Modal title="선택 게시글 삭제" onClose={onClose}>
+    <Modal title={title} onClose={onClose}>
       <form className="delete-confirm-form" onSubmit={submit}>
         <div className="delete-warning">
           <Trash2 size={20} />
-          <strong>선택한 게시글 {count}개를 삭제합니다.</strong>
-          <p>삭제하려면 등록된 계정의 이메일과 비밀번호를 입력해주세요.</p>
+          <strong>{headline}</strong>
+          <p>{description}</p>
         </div>
         <label>
           이메일
