@@ -914,6 +914,14 @@ h2 {
   margin: 0;
 }
 
+.tips-count {
+  display: inline-block;
+  margin-top: 6px;
+  color: #7a857b;
+  font-size: 12px;
+  font-weight: 850;
+}
+
 .tips-list {
   display: grid;
   gap: 10px;
@@ -957,6 +965,35 @@ h2 {
   color: #7a857b;
   font-size: 12px;
   font-weight: 850;
+}
+
+.tips-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.tips-pagination button {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(24, 32, 27, 0.09);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #526055;
+  font-weight: 950;
+}
+
+.tips-pagination button.active {
+  border-color: #143f3d;
+  background: #143f3d;
+  color: #ffffff;
+}
+
+.tips-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
 }
 
 .tip-actions {

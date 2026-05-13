@@ -1073,15 +1073,23 @@ function AnimatedWon({ value }) {
 
 function TipsBoard({ session }) {
   const [posts, setPosts] = useState([]);
+  const [postPage, setPostPage] = useState(1);
   const [selectedPost, setSelectedPost] = useState(null);
   const [editorPost, setEditorPost] = useState(null);
   const [deletePost, setDeletePost] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const postsPerPage = 8;
+  const totalPostPages = Math.max(1, Math.ceil(posts.length / postsPerPage));
+  const visiblePosts = posts.slice((postPage - 1) * postsPerPage, postPage * postsPerPage);
 
   useEffect(() => {
     loadPosts();
   }, []);
+
+  useEffect(() => {
+    setPostPage((current) => Math.min(current, totalPostPages));
+  }, [totalPostPages]);
 
   async function loadPosts() {
     if (!isSupabaseReady) {
@@ -1099,6 +1107,7 @@ function TipsBoard({ session }) {
       setMessage(`게시글을 불러오지 못했습니다. Supabase SQL을 실행했는지 확인해주세요. (${error.message})`);
     } else {
       setPosts(data || []);
+      setPostPage(1);
       setMessage(data?.length ? '게시글을 불러왔습니다.' : '아직 작성된 글이 없습니다.');
     }
     setLoading(false);
@@ -1173,13 +1182,14 @@ function TipsBoard({ session }) {
             <div>
               <p className="section-kicker">Saved Tips</p>
               <h3>작성한 리스트</h3>
+              <span className="tips-count">총 {posts.length}개 · {postPage}/{totalPostPages}페이지</span>
             </div>
             {loading && <Loader2 className="spin" size={18} />}
           </div>
           <div className="tips-list">
             {posts.length === 0 ? (
               <p className="empty">글 작성 버튼을 눌러 첫 꿀팁을 남겨보세요.</p>
-            ) : posts.map((post) => (
+            ) : visiblePosts.map((post) => (
               <button
                 key={post.id}
                 className={selectedPost?.id === post.id ? 'active' : ''}
@@ -1191,6 +1201,25 @@ function TipsBoard({ session }) {
               </button>
             ))}
           </div>
+          {posts.length > postsPerPage && (
+            <div className="tips-pagination">
+              <button onClick={() => setPostPage((current) => Math.max(1, current - 1))} disabled={postPage === 1}>
+                이전
+              </button>
+              {Array.from({ length: totalPostPages }, (_, index) => index + 1).map((page) => (
+                <button
+                  key={page}
+                  className={page === postPage ? 'active' : ''}
+                  onClick={() => setPostPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+              <button onClick={() => setPostPage((current) => Math.min(totalPostPages, current + 1))} disabled={postPage === totalPostPages}>
+                다음
+              </button>
+            </div>
+          )}
           <p className="status-line">
             <Database size={15} />
             {message || `${session?.user?.email || ''} 계정으로 연결되었습니다.`}
