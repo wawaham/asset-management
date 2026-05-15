@@ -2029,9 +2029,16 @@ function RealEstateMap() {
     <section className="real-estate-map-page">
       <div className="map-hero">
         <div>
-          <p className="section-kicker">Actual Transaction Map</p>
+          <p className="section-kicker">Actual Transaction Map · Beta</p>
           <h2>아파트 실거래가 지도</h2>
           <p>국토교통부 실거래가 공개 API와 카카오맵을 연결해 지역별 아파트 거래 금액을 지도 위에서 확인합니다.</p>
+        </div>
+        <div className="map-beta-badge">
+          <Sparkles size={17} />
+          <div>
+            <strong>테스트 기능</strong>
+            <span>개발 중인 화면이라 조회 위치와 거래 정보가 실제와 다를 수 있어요.</span>
+          </div>
         </div>
       </div>
 
