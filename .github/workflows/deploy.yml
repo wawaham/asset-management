@@ -45,7 +45,7 @@ jobs:
           rm -rf /tmp/asset-management-pages
           cp -R dist /tmp/asset-management-pages
           git switch --orphan gh-pages
-          git rm -rf .
+          git rm -rf . || true
           cp -R /tmp/asset-management-pages/. .
           touch .nojekyll
           git add .
