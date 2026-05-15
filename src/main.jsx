@@ -1837,11 +1837,19 @@ function RealEstateMap() {
   const geocoderRef = useRef(null);
   const overlaysRef = useRef([]);
   const preserveViewportRef = useRef(false);
+  const dealMonthRef = useRef(dealMonth);
+  const autoSearchTimerRef = useRef(null);
+  const lastAutoSearchRef = useRef('');
   const apartmentDeals = useMemo(() => groupDealsByApartment(deals, region.query), [deals, region.query]);
   const latestDeal = apartmentDeals[0];
   const averageDeal = apartmentDeals.length
     ? apartmentDeals.reduce((sum, deal) => sum + deal.dealWon, 0) / apartmentDeals.length
     : 0;
+
+  useEffect(() => {
+    dealMonthRef.current = dealMonth;
+    lastAutoSearchRef.current = '';
+  }, [dealMonth]);
 
   useEffect(() => {
     if (!kakaoMapAppKey || !mapRef.current) return undefined;
@@ -1856,14 +1864,13 @@ function RealEstateMap() {
       mapInstanceRef.current = map;
       geocoderRef.current = new kakao.maps.services.Geocoder();
       setMapReady(true);
-      kakao.maps.event.addListener(map, 'dragend', () => {
-        setStatus('지도를 옮겼습니다. 현재 지도 위치로 조회 버튼을 눌러 해당 지역 실거래가를 확인하세요.');
-      });
+      kakao.maps.event.addListener(map, 'idle', () => scheduleCurrentMapSearch());
     }
 
     initMap().catch(() => setStatus('카카오맵을 불러오지 못했습니다. JavaScript 키와 도메인 설정을 확인해주세요.'));
     return () => {
       cancelled = true;
+      window.clearTimeout(autoSearchTimerRef.current);
       clearMapOverlays();
     };
   }, [kakaoMapAppKey]);
@@ -1877,6 +1884,7 @@ function RealEstateMap() {
     clearMapOverlays();
     if (apartmentDeals.length === 0) return;
 
+    const shouldPreserveViewport = preserveViewportRef.current;
     const bounds = new kakao.maps.LatLngBounds();
     let markerCount = 0;
     apartmentDeals.slice(0, 18).forEach((deal) => {
@@ -1894,7 +1902,7 @@ function RealEstateMap() {
         });
         kakao.maps.event.addListener(marker, 'click', () => setSelectedDeal(deal));
         overlaysRef.current.push(marker, overlay);
-        if (!preserveViewportRef.current && markerCount > 1) {
+        if (!shouldPreserveViewport && markerCount > 1) {
           map.setBounds(bounds);
         }
       });
@@ -1907,22 +1915,24 @@ function RealEstateMap() {
     overlaysRef.current = [];
   }
 
-  async function fetchDeals(targetRegion = region) {
+  async function fetchDeals(targetRegion = region, options = {}) {
     if (!realEstateApiKey) {
       setDeals([]);
       setStatus('공공데이터포털 서비스키가 필요합니다. GitHub Variables에 VITE_DATA_GO_KR_SERVICE_KEY를 추가해주세요.');
       return;
     }
 
+    if (options.preserveViewport) preserveViewportRef.current = true;
     setLoading(true);
     setSelectedDeal(null);
-    setStatus('');
+    if (!options.silent) setStatus('');
 
     try {
+      const targetDealMonth = options.dealMonth || dealMonthRef.current;
       const url = new URL(realEstateApiEndpoint);
       url.searchParams.set('serviceKey', realEstateApiKey);
       url.searchParams.set('LAWD_CD', targetRegion.code);
-      url.searchParams.set('DEAL_YMD', dealMonth.replace('-', '').slice(0, 6));
+      url.searchParams.set('DEAL_YMD', targetDealMonth.replace('-', '').slice(0, 6));
       url.searchParams.set('numOfRows', '100');
       url.searchParams.set('pageNo', '1');
       const response = await fetch(url);
@@ -1933,7 +1943,7 @@ function RealEstateMap() {
         : pickXmlDealItems(rawResponse);
       const items = sourceItems.map(normalizeDeal).filter((deal) => deal.dealWon > 0);
       setDeals(items);
-      setStatus(items.length ? `${targetRegion.label} ${items.length}건의 실거래가를 불러왔습니다.` : `${targetRegion.label} 조건의 실거래가가 없습니다.`);
+      setStatus(items.length ? `${targetRegion.label} ${items.length}건의 실거래가를 지도에 표시했습니다.` : `${targetRegion.label} 조건의 실거래가가 없습니다.`);
     } catch (error) {
       setDeals([]);
       setStatus(`실거래가 조회 실패: ${error.message}. 브라우저 CORS가 막히면 Supabase Edge Function 프록시가 필요합니다.`);
@@ -1965,15 +1975,30 @@ function RealEstateMap() {
       map.setCenter(position);
       map.setLevel(4);
       preserveViewportRef.current = true;
-      setStatus(`${result[0].place_name} 위치로 이동했습니다. 현재 지도 위치로 조회를 눌러 주변 실거래가를 확인하세요.`);
+      setStatus(`${result[0].place_name} 위치로 이동했습니다. 주변 실거래가를 자동으로 조회합니다.`);
     });
   }
 
-  function searchCurrentMapRegion() {
+  function scheduleCurrentMapSearch() {
+    window.clearTimeout(autoSearchTimerRef.current);
+    autoSearchTimerRef.current = window.setTimeout(() => {
+      searchCurrentMapRegion({ auto: true });
+    }, 550);
+  }
+
+  function searchCurrentMapRegion(options = {}) {
     const kakao = kakaoRef.current;
     const map = mapInstanceRef.current;
     const geocoder = geocoderRef.current;
     if (!kakao || !map || !geocoder) return;
+
+    if (map.getLevel() > 6) {
+      setDeals([]);
+      clearMapOverlays();
+      setStatus('지도가 너무 넓게 보입니다. 조금 더 확대하면 현재 화면 주변 실거래가를 자동으로 표시합니다.');
+      lastAutoSearchRef.current = '';
+      return;
+    }
 
     const center = map.getCenter();
     geocoder.coord2RegionCode(center.getLng(), center.getLat(), async (result, statusCode) => {
@@ -1987,9 +2012,11 @@ function RealEstateMap() {
         label: regionInfo.address_name,
         query: regionInfo.address_name,
       };
+      const searchKey = `${nextRegion.code}-${dealMonthRef.current}`;
+      if (options.auto && lastAutoSearchRef.current === searchKey) return;
+      lastAutoSearchRef.current = searchKey;
       setRegion(nextRegion);
-      preserveViewportRef.current = true;
-      await fetchDeals(nextRegion);
+      await fetchDeals(nextRegion, { preserveViewport: true, silent: options.auto, dealMonth: dealMonthRef.current });
     });
   }
 
