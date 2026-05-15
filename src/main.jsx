@@ -27,9 +27,11 @@ import {
   Lock,
   LogOut,
   Mail,
+  MapPinned,
   Maximize2,
   Percent,
   Plus,
+  Search,
   ReceiptText,
   Save,
   Sparkles,
@@ -69,6 +71,17 @@ const dsrRatio = 0.4;
 const stressRateAdd = 1.5;
 const emptyTipContent = '<p></p>';
 const tipImageBucket = 'tip-images';
+const realEstateApiKey = import.meta.env.VITE_DATA_GO_KR_SERVICE_KEY || '';
+const kakaoMapAppKey = import.meta.env.VITE_KAKAO_MAP_APP_KEY || '';
+const realEstateApiEndpoint = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade';
+const regionOptions = [
+  { code: '11680', label: '서울 강남구', query: '서울 강남구' },
+  { code: '11440', label: '서울 마포구', query: '서울 마포구' },
+  { code: '11710', label: '서울 송파구', query: '서울 송파구' },
+  { code: '41135', label: '성남 분당구', query: '경기 성남시 분당구' },
+  { code: '41117', label: '수원 영통구', query: '경기 수원시 영통구' },
+  { code: '41465', label: '용인 수지구', query: '경기 용인시 수지구' },
+];
 
 const aprilRows = [
   { owner: '인웅', category: '청년도약계좌', amount: 0.077 * hundredMillion },
@@ -272,6 +285,87 @@ function safeFileName(name) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .toLowerCase();
+}
+
+function normalizeDealAmount(value) {
+  const numeric = Number(String(value || '').replace(/,/g, '').trim());
+  return Number.isFinite(numeric) ? numeric * tenThousand : 0;
+}
+
+function formatDealAmount(value) {
+  const won = normalizeDealAmount(value);
+  if (!won) return '-';
+  return formatCompactWon(won);
+}
+
+function pickDealItems(payload) {
+  const body = payload?.response?.body;
+  const item = body?.items?.item;
+  if (!item) return [];
+  return Array.isArray(item) ? item : [item];
+}
+
+function normalizeDeal(item) {
+  const aptName = item.aptNm || item.아파트 || item.apartmentName || '이름 없음';
+  const dong = item.umdNm || item.법정동 || item.dong || '';
+  const jibun = item.jibun || item.지번 || '';
+  const roadName = item.roadNm || item.도로명 || '';
+  const dealAmount = item.dealAmount || item.거래금액 || '';
+  const area = item.excluUseAr || item.전용면적 || '';
+  const floor = item.floor || item.층 || '';
+  const year = item.dealYear || item.년 || '';
+  const month = item.dealMonth || item.월 || '';
+  const day = item.dealDay || item.일 || '';
+
+  return {
+    id: `${aptName}-${dong}-${jibun}-${area}-${floor}-${year}${month}${day}-${dealAmount}`,
+    aptName,
+    dong: String(dong).trim(),
+    jibun: String(jibun).trim(),
+    roadName: String(roadName).trim(),
+    dealAmount,
+    dealWon: normalizeDealAmount(dealAmount),
+    area,
+    floor,
+    date: [year, String(month).padStart(2, '0'), String(day).padStart(2, '0')].filter(Boolean).join('.'),
+  };
+}
+
+function groupDealsByApartment(deals, regionQuery) {
+  const grouped = new Map();
+  deals.forEach((deal) => {
+    const key = `${deal.aptName}-${deal.dong}-${deal.jibun}`;
+    const current = grouped.get(key);
+    if (!current || deal.dealWon > current.dealWon) {
+      grouped.set(key, {
+        ...deal,
+        address: deal.roadName
+          ? `${regionQuery} ${deal.roadName}`
+          : `${regionQuery} ${deal.dong} ${deal.jibun}`,
+      });
+    }
+  });
+  return [...grouped.values()].sort((a, b) => b.dealWon - a.dealWon);
+}
+
+function loadKakaoMaps(appKey) {
+  if (window.kakao?.maps?.services) {
+    return Promise.resolve(window.kakao);
+  }
+  if (window.__kakaoMapLoader) return window.__kakaoMapLoader;
+
+  window.__kakaoMapLoader = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false&libraries=services`;
+    script.async = true;
+    script.onload = () => {
+      window.kakao.maps.load(() => resolve(window.kakao));
+    };
+    script.onerror = () => reject(new Error('Kakao Maps load failed'));
+    document.head.appendChild(script);
+  });
+
+  return window.__kakaoMapLoader;
 }
 
 function formatAxisAmount(value) {
@@ -529,6 +623,7 @@ function App() {
   const pageTitles = {
     assets: '월별 자산 현황',
     ltv: 'LTV 계산기',
+    map: '부동산 지도',
     tips: '부동산 꿀팁',
   };
 
@@ -745,6 +840,10 @@ function App() {
               <Calculator size={16} />
               LTV 계산기
             </button>
+            <button className={page === 'map' ? 'active' : ''} onClick={() => setPage('map')}>
+              <MapPinned size={16} />
+              부동산 지도
+            </button>
             <button className={page === 'tips' ? 'active' : ''} onClick={() => setPage('tips')}>
               <FileText size={16} />
               부동산 꿀팁
@@ -901,6 +1000,8 @@ function App() {
         </>
       ) : page === 'ltv' ? (
         <LtvCalculator />
+      ) : page === 'map' ? (
+        <RealEstateMap />
       ) : (
         <TipsBoard session={session} />
       )}
@@ -1624,6 +1725,182 @@ function FilterSelect({ label, value, options, onChange }) {
         </div>
       )}
     </div>
+  );
+}
+
+function RealEstateMap() {
+  const [regionCode, setRegionCode] = useState(regionOptions[0].code);
+  const [dealMonth, setDealMonth] = useState('202604');
+  const [deals, setDeals] = useState([]);
+  const [selectedDeal, setSelectedDeal] = useState(null);
+  const [status, setStatus] = useState('지역과 월을 선택한 뒤 실거래가를 조회하세요.');
+  const [loading, setLoading] = useState(false);
+  const mapRef = useRef(null);
+  const region = regionOptions.find((option) => option.code === regionCode) || regionOptions[0];
+  const apartmentDeals = useMemo(() => groupDealsByApartment(deals, region.query), [deals, region.query]);
+  const latestDeal = apartmentDeals[0];
+  const averageDeal = apartmentDeals.length
+    ? apartmentDeals.reduce((sum, deal) => sum + deal.dealWon, 0) / apartmentDeals.length
+    : 0;
+
+  useEffect(() => {
+    if (!kakaoMapAppKey || !mapRef.current) return undefined;
+    let cancelled = false;
+    let map;
+    let overlays = [];
+
+    async function drawMap() {
+      const kakao = await loadKakaoMaps(kakaoMapAppKey);
+      if (cancelled || !mapRef.current) return;
+      const center = new kakao.maps.LatLng(37.4979, 127.0276);
+      map = new kakao.maps.Map(mapRef.current, { center, level: 6 });
+      const geocoder = new kakao.maps.services.Geocoder();
+      const bounds = new kakao.maps.LatLngBounds();
+
+      apartmentDeals.slice(0, 18).forEach((deal) => {
+        geocoder.addressSearch(deal.address, (result, statusCode) => {
+          if (cancelled || statusCode !== kakao.maps.services.Status.OK || !result[0]) return;
+          const position = new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
+          bounds.extend(position);
+          const marker = new kakao.maps.Marker({ map, position, title: deal.aptName });
+          const overlay = new kakao.maps.CustomOverlay({
+            map,
+            position,
+            yAnchor: 1.45,
+            content: `<button class="map-price-marker">${formatDealAmount(deal.dealAmount)}</button>`,
+          });
+          kakao.maps.event.addListener(marker, 'click', () => setSelectedDeal(deal));
+          overlays.push(marker, overlay);
+          map.setBounds(bounds);
+        });
+      });
+    }
+
+    drawMap().catch(() => setStatus('카카오맵을 불러오지 못했습니다. JavaScript 키와 도메인 설정을 확인해주세요.'));
+    return () => {
+      cancelled = true;
+      overlays.forEach((overlay) => overlay.setMap?.(null));
+    };
+  }, [apartmentDeals, kakaoMapAppKey]);
+
+  async function searchDeals(event) {
+    event.preventDefault();
+    setLoading(true);
+    setSelectedDeal(null);
+    setStatus('');
+
+    if (!realEstateApiKey) {
+      setDeals([]);
+      setStatus('공공데이터포털 서비스키가 필요합니다. GitHub Variables에 VITE_DATA_GO_KR_SERVICE_KEY를 추가해주세요.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const url = new URL(realEstateApiEndpoint);
+      url.searchParams.set('serviceKey', realEstateApiKey);
+      url.searchParams.set('LAWD_CD', regionCode);
+      url.searchParams.set('DEAL_YMD', dealMonth.replace('-', '').slice(0, 6));
+      url.searchParams.set('numOfRows', '100');
+      url.searchParams.set('pageNo', '1');
+      url.searchParams.set('_type', 'json');
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      const items = pickDealItems(payload).map(normalizeDeal).filter((deal) => deal.dealWon > 0);
+      setDeals(items);
+      setStatus(items.length ? `${items.length}건의 실거래가를 불러왔습니다.` : '해당 조건의 실거래가가 없습니다.');
+    } catch (error) {
+      setDeals([]);
+      setStatus(`실거래가 조회 실패: ${error.message}. 브라우저 CORS가 막히면 Supabase Edge Function 프록시가 필요합니다.`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="real-estate-map-page">
+      <div className="map-hero">
+        <div>
+          <p className="section-kicker">Actual Transaction Map</p>
+          <h2>아파트 실거래가 지도</h2>
+          <p>국토교통부 실거래가 공개 API와 카카오맵을 연결해 지역별 아파트 거래 금액을 지도 위에서 확인합니다.</p>
+        </div>
+        <div className="map-key-status">
+          <span className={realEstateApiKey ? 'ready' : ''}>실거래 API {realEstateApiKey ? '연결 준비' : '키 필요'}</span>
+          <span className={kakaoMapAppKey ? 'ready' : ''}>카카오맵 {kakaoMapAppKey ? '연결 준비' : '키 필요'}</span>
+        </div>
+      </div>
+
+      <form className="map-search-panel" onSubmit={searchDeals}>
+        <label>
+          지역
+          <select value={regionCode} onChange={(event) => setRegionCode(event.target.value)}>
+            {regionOptions.map((option) => (
+              <option key={option.code} value={option.code}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          거래월
+          <input value={dealMonth} onChange={(event) => setDealMonth(event.target.value.replace(/[^\d]/g, '').slice(0, 6))} inputMode="numeric" placeholder="202604" />
+        </label>
+        <button className="primary-button" type="submit" disabled={loading}>
+          {loading ? <Loader2 className="spin" size={17} /> : <Search size={17} />}
+          실거래가 조회
+        </button>
+      </form>
+
+      <section className="map-dashboard">
+        <div className="map-canvas-card">
+          {kakaoMapAppKey ? (
+            <div className="map-canvas" ref={mapRef} />
+          ) : (
+            <div className="map-placeholder">
+              <MapPinned size={42} />
+              <h3>카카오맵 JavaScript 키가 필요합니다</h3>
+              <p>GitHub Variables에 VITE_KAKAO_MAP_APP_KEY를 추가하면 지도 위에 거래가 마커를 표시합니다.</p>
+            </div>
+          )}
+        </div>
+
+        <aside className="deal-side-panel">
+          <div className="deal-summary-grid">
+            <article>
+              <span>거래 아파트</span>
+              <strong>{apartmentDeals.length}곳</strong>
+            </article>
+            <article>
+              <span>최고 거래</span>
+              <strong>{latestDeal ? formatWon(latestDeal.dealWon) : '-'}</strong>
+            </article>
+            <article>
+              <span>평균 거래</span>
+              <strong>{averageDeal ? formatWon(averageDeal) : '-'}</strong>
+            </article>
+          </div>
+          <p className="status-line">
+            <Database size={15} />
+            {status}
+          </p>
+          <div className="deal-list">
+            {apartmentDeals.length === 0 ? (
+              <div className="deal-empty">
+                <MapPinned size={32} />
+                <strong>조회된 거래가 없습니다</strong>
+                <span>키를 연결한 뒤 지역과 거래월을 선택해 조회해보세요.</span>
+              </div>
+            ) : apartmentDeals.map((deal) => (
+              <button key={deal.id} className={selectedDeal?.id === deal.id ? 'active' : ''} onClick={() => setSelectedDeal(deal)} type="button">
+                <strong>{deal.aptName}</strong>
+                <span>{deal.dong} {deal.area}㎡ · {deal.floor}층 · {deal.date}</span>
+                <em>{formatWon(deal.dealWon)}</em>
+              </button>
+            ))}
+          </div>
+        </aside>
+      </section>
+    </section>
   );
 }
 
