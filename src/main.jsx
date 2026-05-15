@@ -305,6 +305,29 @@ function pickDealItems(payload) {
   return Array.isArray(item) ? item : [item];
 }
 
+function textFromXml(node, tagName) {
+  return node.getElementsByTagName(tagName)[0]?.textContent?.trim() || '';
+}
+
+function pickXmlDealItems(xmlText) {
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  const parserError = doc.getElementsByTagName('parsererror')[0];
+  if (parserError) throw new Error('실거래가 응답 XML을 읽지 못했습니다.');
+
+  return [...doc.getElementsByTagName('item')].map((node) => ({
+    aptNm: textFromXml(node, 'aptNm'),
+    umdNm: textFromXml(node, 'umdNm'),
+    jibun: textFromXml(node, 'jibun'),
+    roadNm: textFromXml(node, 'roadNm'),
+    dealAmount: textFromXml(node, 'dealAmount'),
+    excluUseAr: textFromXml(node, 'excluUseAr'),
+    floor: textFromXml(node, 'floor'),
+    dealYear: textFromXml(node, 'dealYear'),
+    dealMonth: textFromXml(node, 'dealMonth'),
+    dealDay: textFromXml(node, 'dealDay'),
+  }));
+}
+
 function normalizeDeal(item) {
   const aptName = item.aptNm || item.아파트 || item.apartmentName || '이름 없음';
   const dong = item.umdNm || item.법정동 || item.dong || '';
@@ -1803,11 +1826,13 @@ function RealEstateMap() {
       url.searchParams.set('DEAL_YMD', dealMonth.replace('-', '').slice(0, 6));
       url.searchParams.set('numOfRows', '100');
       url.searchParams.set('pageNo', '1');
-      url.searchParams.set('_type', 'json');
       const response = await fetch(url);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const payload = await response.json();
-      const items = pickDealItems(payload).map(normalizeDeal).filter((deal) => deal.dealWon > 0);
+      const rawResponse = await response.text();
+      const sourceItems = rawResponse.trim().startsWith('{')
+        ? pickDealItems(JSON.parse(rawResponse))
+        : pickXmlDealItems(rawResponse);
+      const items = sourceItems.map(normalizeDeal).filter((deal) => deal.dealWon > 0);
       setDeals(items);
       setStatus(items.length ? `${items.length}건의 실거래가를 불러왔습니다.` : '해당 조건의 실거래가가 없습니다.');
     } catch (error) {
