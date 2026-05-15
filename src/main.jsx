@@ -1752,14 +1752,19 @@ function FilterSelect({ label, value, options, onChange }) {
 }
 
 function RealEstateMap() {
-  const [regionCode, setRegionCode] = useState(regionOptions[0].code);
+  const [region, setRegion] = useState(regionOptions[0]);
   const [dealMonth, setDealMonth] = useState('202604');
+  const [searchQuery, setSearchQuery] = useState('');
   const [deals, setDeals] = useState([]);
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [status, setStatus] = useState('지역과 월을 선택한 뒤 실거래가를 조회하세요.');
   const [loading, setLoading] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef(null);
-  const region = regionOptions.find((option) => option.code === regionCode) || regionOptions[0];
+  const mapInstanceRef = useRef(null);
+  const kakaoRef = useRef(null);
+  const geocoderRef = useRef(null);
+  const overlaysRef = useRef([]);
   const apartmentDeals = useMemo(() => groupDealsByApartment(deals, region.query), [deals, region.query]);
   const latestDeal = apartmentDeals[0];
   const averageDeal = apartmentDeals.length
@@ -1769,60 +1774,77 @@ function RealEstateMap() {
   useEffect(() => {
     if (!kakaoMapAppKey || !mapRef.current) return undefined;
     let cancelled = false;
-    let map;
-    let overlays = [];
 
-    async function drawMap() {
+    async function initMap() {
       const kakao = await loadKakaoMaps(kakaoMapAppKey);
       if (cancelled || !mapRef.current) return;
       const center = new kakao.maps.LatLng(37.4979, 127.0276);
-      map = new kakao.maps.Map(mapRef.current, { center, level: 6 });
-      const geocoder = new kakao.maps.services.Geocoder();
-      const bounds = new kakao.maps.LatLngBounds();
-
-      apartmentDeals.slice(0, 18).forEach((deal) => {
-        geocoder.addressSearch(deal.address, (result, statusCode) => {
-          if (cancelled || statusCode !== kakao.maps.services.Status.OK || !result[0]) return;
-          const position = new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
-          bounds.extend(position);
-          const marker = new kakao.maps.Marker({ map, position, title: deal.aptName });
-          const overlay = new kakao.maps.CustomOverlay({
-            map,
-            position,
-            yAnchor: 1.45,
-            content: `<button class="map-price-marker">${formatDealAmount(deal.dealAmount)}</button>`,
-          });
-          kakao.maps.event.addListener(marker, 'click', () => setSelectedDeal(deal));
-          overlays.push(marker, overlay);
-          map.setBounds(bounds);
-        });
+      const map = new kakao.maps.Map(mapRef.current, { center, level: 6 });
+      kakaoRef.current = kakao;
+      mapInstanceRef.current = map;
+      geocoderRef.current = new kakao.maps.services.Geocoder();
+      setMapReady(true);
+      kakao.maps.event.addListener(map, 'dragend', () => {
+        setStatus('지도를 옮겼습니다. 현재 지도 위치로 조회 버튼을 눌러 해당 지역 실거래가를 확인하세요.');
       });
     }
 
-    drawMap().catch(() => setStatus('카카오맵을 불러오지 못했습니다. JavaScript 키와 도메인 설정을 확인해주세요.'));
+    initMap().catch(() => setStatus('카카오맵을 불러오지 못했습니다. JavaScript 키와 도메인 설정을 확인해주세요.'));
     return () => {
       cancelled = true;
-      overlays.forEach((overlay) => overlay.setMap?.(null));
+      clearMapOverlays();
     };
-  }, [apartmentDeals, kakaoMapAppKey]);
+  }, [kakaoMapAppKey]);
 
-  async function searchDeals(event) {
-    event.preventDefault();
+  useEffect(() => {
+    const kakao = kakaoRef.current;
+    const map = mapInstanceRef.current;
+    const geocoder = geocoderRef.current;
+    if (!kakao || !map || !geocoder) return;
+
+    clearMapOverlays();
+    if (apartmentDeals.length === 0) return;
+
+    const bounds = new kakao.maps.LatLngBounds();
+    apartmentDeals.slice(0, 18).forEach((deal) => {
+      geocoder.addressSearch(deal.address, (result, statusCode) => {
+        if (statusCode !== kakao.maps.services.Status.OK || !result[0]) return;
+        const position = new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
+        bounds.extend(position);
+        const marker = new kakao.maps.Marker({ map, position, title: deal.aptName });
+        const overlay = new kakao.maps.CustomOverlay({
+          map,
+          position,
+          yAnchor: 1.45,
+          content: `<button class="map-price-marker">${formatDealAmount(deal.dealAmount)}</button>`,
+        });
+        kakao.maps.event.addListener(marker, 'click', () => setSelectedDeal(deal));
+        overlaysRef.current.push(marker, overlay);
+        map.setBounds(bounds);
+      });
+    });
+  }, [apartmentDeals]);
+
+  function clearMapOverlays() {
+    overlaysRef.current.forEach((overlay) => overlay.setMap?.(null));
+    overlaysRef.current = [];
+  }
+
+  async function fetchDeals(targetRegion = region) {
+    if (!realEstateApiKey) {
+      setDeals([]);
+      setStatus('공공데이터포털 서비스키가 필요합니다. GitHub Variables에 VITE_DATA_GO_KR_SERVICE_KEY를 추가해주세요.');
+      return;
+    }
+
     setLoading(true);
     setSelectedDeal(null);
     setStatus('');
 
-    if (!realEstateApiKey) {
-      setDeals([]);
-      setStatus('공공데이터포털 서비스키가 필요합니다. GitHub Variables에 VITE_DATA_GO_KR_SERVICE_KEY를 추가해주세요.');
-      setLoading(false);
-      return;
-    }
-
     try {
       const url = new URL(realEstateApiEndpoint);
       url.searchParams.set('serviceKey', realEstateApiKey);
-      url.searchParams.set('LAWD_CD', regionCode);
+      url.searchParams.set('LAWD_CD', targetRegion.code);
       url.searchParams.set('DEAL_YMD', dealMonth.replace('-', '').slice(0, 6));
       url.searchParams.set('numOfRows', '100');
       url.searchParams.set('pageNo', '1');
@@ -1834,13 +1856,66 @@ function RealEstateMap() {
         : pickXmlDealItems(rawResponse);
       const items = sourceItems.map(normalizeDeal).filter((deal) => deal.dealWon > 0);
       setDeals(items);
-      setStatus(items.length ? `${items.length}건의 실거래가를 불러왔습니다.` : '해당 조건의 실거래가가 없습니다.');
+      setStatus(items.length ? `${targetRegion.label} ${items.length}건의 실거래가를 불러왔습니다.` : `${targetRegion.label} 조건의 실거래가가 없습니다.`);
     } catch (error) {
       setDeals([]);
       setStatus(`실거래가 조회 실패: ${error.message}. 브라우저 CORS가 막히면 Supabase Edge Function 프록시가 필요합니다.`);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function searchDeals(event) {
+    event.preventDefault();
+    await fetchDeals(region);
+  }
+
+  function searchApartment(event) {
+    event.preventDefault();
+    const keyword = searchQuery.trim();
+    const kakao = kakaoRef.current;
+    const map = mapInstanceRef.current;
+    if (!keyword || !kakao || !map) return;
+
+    const places = new kakao.maps.services.Places();
+    places.keywordSearch(keyword, (result, statusCode) => {
+      if (statusCode !== kakao.maps.services.Status.OK || !result[0]) {
+        setStatus('검색 결과가 없습니다. 아파트명 또는 지역명을 조금 더 구체적으로 입력해보세요.');
+        return;
+      }
+      const position = new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
+      map.setCenter(position);
+      map.setLevel(4);
+      setStatus(`${result[0].place_name} 위치로 이동했습니다. 현재 지도 위치로 조회를 눌러 주변 실거래가를 확인하세요.`);
+    });
+  }
+
+  function searchCurrentMapRegion() {
+    const kakao = kakaoRef.current;
+    const map = mapInstanceRef.current;
+    const geocoder = geocoderRef.current;
+    if (!kakao || !map || !geocoder) return;
+
+    const center = map.getCenter();
+    geocoder.coord2RegionCode(center.getLng(), center.getLat(), async (result, statusCode) => {
+      if (statusCode !== kakao.maps.services.Status.OK || !result.length) {
+        setStatus('현재 지도 위치의 행정구역을 찾지 못했습니다.');
+        return;
+      }
+      const regionInfo = result.find((item) => item.region_type === 'B') || result[0];
+      const nextRegion = {
+        code: String(regionInfo.code).slice(0, 5),
+        label: regionInfo.address_name,
+        query: regionInfo.address_name,
+      };
+      setRegion(nextRegion);
+      await fetchDeals(nextRegion);
+    });
+  }
+
+  function selectRegion(nextCode) {
+    const nextRegion = regionOptions.find((option) => option.code === nextCode);
+    if (nextRegion) setRegion(nextRegion);
   }
 
   return (
@@ -1851,16 +1926,13 @@ function RealEstateMap() {
           <h2>아파트 실거래가 지도</h2>
           <p>국토교통부 실거래가 공개 API와 카카오맵을 연결해 지역별 아파트 거래 금액을 지도 위에서 확인합니다.</p>
         </div>
-        <div className="map-key-status">
-          <span className={realEstateApiKey ? 'ready' : ''}>실거래 API {realEstateApiKey ? '연결 준비' : '키 필요'}</span>
-          <span className={kakaoMapAppKey ? 'ready' : ''}>카카오맵 {kakaoMapAppKey ? '연결 준비' : '키 필요'}</span>
-        </div>
       </div>
 
       <form className="map-search-panel" onSubmit={searchDeals}>
         <label>
           지역
-          <select value={regionCode} onChange={(event) => setRegionCode(event.target.value)}>
+          <select value={regionOptions.some((option) => option.code === region.code) ? region.code : ''} onChange={(event) => selectRegion(event.target.value)}>
+            {!regionOptions.some((option) => option.code === region.code) && <option value="">{region.label}</option>}
             {regionOptions.map((option) => (
               <option key={option.code} value={option.code}>{option.label}</option>
             ))}
@@ -1873,6 +1945,21 @@ function RealEstateMap() {
         <button className="primary-button" type="submit" disabled={loading}>
           {loading ? <Loader2 className="spin" size={17} /> : <Search size={17} />}
           실거래가 조회
+        </button>
+      </form>
+
+      <form className="map-search-panel compact" onSubmit={searchApartment}>
+        <label>
+          아파트 검색
+          <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="예: 래미안, 판교역, 마포래미안푸르지오" />
+        </label>
+        <button className="secondary-button" type="submit" disabled={!mapReady}>
+          <Search size={17} />
+          지도에서 찾기
+        </button>
+        <button className="primary-button" type="button" onClick={searchCurrentMapRegion} disabled={!mapReady || loading}>
+          <MapPinned size={17} />
+          현재 지도 위치로 조회
         </button>
       </form>
 

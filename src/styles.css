@@ -451,6 +451,10 @@ h2 {
   padding: 16px;
 }
 
+.map-search-panel.compact {
+  grid-template-columns: minmax(240px, 1fr) auto auto;
+}
+
 .map-search-panel label {
   display: grid;
   gap: 8px;
@@ -2900,6 +2904,10 @@ h2 {
   }
 
   .map-search-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .map-search-panel.compact {
     grid-template-columns: 1fr;
   }
 
