@@ -1836,6 +1836,7 @@ function RealEstateMap() {
   const kakaoRef = useRef(null);
   const geocoderRef = useRef(null);
   const overlaysRef = useRef([]);
+  const preserveViewportRef = useRef(false);
   const apartmentDeals = useMemo(() => groupDealsByApartment(deals, region.query), [deals, region.query]);
   const latestDeal = apartmentDeals[0];
   const averageDeal = apartmentDeals.length
@@ -1877,11 +1878,13 @@ function RealEstateMap() {
     if (apartmentDeals.length === 0) return;
 
     const bounds = new kakao.maps.LatLngBounds();
+    let markerCount = 0;
     apartmentDeals.slice(0, 18).forEach((deal) => {
       geocoder.addressSearch(deal.address, (result, statusCode) => {
         if (statusCode !== kakao.maps.services.Status.OK || !result[0]) return;
         const position = new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
         bounds.extend(position);
+        markerCount += 1;
         const marker = new kakao.maps.Marker({ map, position, title: deal.aptName });
         const overlay = new kakao.maps.CustomOverlay({
           map,
@@ -1891,9 +1894,12 @@ function RealEstateMap() {
         });
         kakao.maps.event.addListener(marker, 'click', () => setSelectedDeal(deal));
         overlaysRef.current.push(marker, overlay);
-        map.setBounds(bounds);
+        if (!preserveViewportRef.current && markerCount > 1) {
+          map.setBounds(bounds);
+        }
       });
     });
+    preserveViewportRef.current = false;
   }, [apartmentDeals]);
 
   function clearMapOverlays() {
@@ -1938,6 +1944,7 @@ function RealEstateMap() {
 
   async function searchDeals(event) {
     event.preventDefault();
+    preserveViewportRef.current = false;
     await fetchDeals(region);
   }
 
@@ -1957,6 +1964,7 @@ function RealEstateMap() {
       const position = new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x));
       map.setCenter(position);
       map.setLevel(4);
+      preserveViewportRef.current = true;
       setStatus(`${result[0].place_name} 위치로 이동했습니다. 현재 지도 위치로 조회를 눌러 주변 실거래가를 확인하세요.`);
     });
   }
@@ -1980,6 +1988,7 @@ function RealEstateMap() {
         query: regionInfo.address_name,
       };
       setRegion(nextRegion);
+      preserveViewportRef.current = true;
       await fetchDeals(nextRegion);
     });
   }
@@ -2028,16 +2037,20 @@ function RealEstateMap() {
           <Search size={17} />
           지도에서 찾기
         </button>
-        <button className="primary-button" type="button" onClick={searchCurrentMapRegion} disabled={!mapReady || loading}>
-          <MapPinned size={17} />
-          현재 지도 위치로 조회
-        </button>
       </form>
 
       <section className="map-dashboard">
         <div className="map-canvas-card">
           {kakaoMapAppKey ? (
-            <div className="map-canvas" ref={mapRef} />
+            <>
+              <div className="map-canvas" ref={mapRef} />
+              <div className="map-floating-actions">
+                <button className="primary-button" type="button" onClick={searchCurrentMapRegion} disabled={!mapReady || loading}>
+                  {loading ? <Loader2 className="spin" size={17} /> : <MapPinned size={17} />}
+                  현재 지도 위치로 조회
+                </button>
+              </div>
+            </>
           ) : (
             <div className="map-placeholder">
               <MapPinned size={42} />

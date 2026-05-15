@@ -483,6 +483,7 @@ h2 {
 }
 
 .map-canvas-card {
+  position: relative;
   overflow: hidden;
   min-height: 620px;
 }
@@ -538,6 +539,23 @@ h2 {
   color: #ffffff;
   font-size: 12px;
   font-weight: 950;
+}
+
+.map-floating-actions {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 4;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.map-floating-actions button {
+  width: auto;
+  min-width: 190px;
+  box-shadow: 0 18px 40px rgba(10, 18, 13, 0.24);
+  pointer-events: auto;
 }
 
 .deal-side-panel {
