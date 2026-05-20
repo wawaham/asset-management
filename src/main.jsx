@@ -1305,20 +1305,26 @@ function TipsBoard({ session }) {
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('real_estate_tips')
-      .select('*')
-      .order('is_pinned', { ascending: false })
-      .order('updated_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('real_estate_tips')
+        .select('*')
+        .order('is_pinned', { ascending: false })
+        .order('updated_at', { ascending: false });
 
-    if (error) {
-      setMessage(`게시글을 불러오지 못했습니다. Supabase SQL을 실행했는지 확인해주세요. (${error.message})`);
-    } else {
-      setPosts(data || []);
-      setPostPage(1);
-      setMessage(data?.length ? '게시글을 불러왔습니다.' : '아직 작성된 글이 없습니다.');
+      if (error) {
+        setMessage(`게시글을 불러오지 못했습니다. Supabase SQL을 실행했는지 확인해주세요. (${error.message})`);
+      } else {
+        setPosts(data || []);
+        setPostPage(1);
+        setMessage(data?.length ? '게시글을 불러왔습니다.' : '아직 작성된 글이 없습니다.');
+      }
+    } catch (error) {
+      setMessage(`게시글을 불러오지 못했습니다. (${error.message})`);
+    } finally {
+      setLoaded(true);
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function verifyCredential({ email, password }) {
@@ -1842,20 +1848,25 @@ function VisitBoard({ session }) {
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('real_estate_visits')
-      .select('*')
-      .order('visit_date', { ascending: false })
-      .order('updated_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('real_estate_visits')
+        .select('*')
+        .order('visit_date', { ascending: false })
+        .order('updated_at', { ascending: false });
 
-    if (error) {
-      setMessage(`임장 노트를 불러오지 못했습니다. Supabase SQL을 실행했는지 확인해주세요. (${error.message})`);
-    } else {
-      setVisits(data || []);
-      setMessage(data?.length ? '임장 노트를 불러왔습니다.' : '아직 저장된 임장 노트가 없습니다.');
+      if (error) {
+        setMessage(`임장 노트를 불러오지 못했습니다. Supabase SQL을 실행했는지 확인해주세요. (${error.message})`);
+      } else {
+        setVisits(data || []);
+        setMessage(data?.length ? '임장 노트를 불러왔습니다.' : '아직 저장된 임장 노트가 없습니다.');
+      }
+    } catch (error) {
+      setMessage(`임장 노트를 불러오지 못했습니다. (${error.message})`);
+    } finally {
+      setLoaded(true);
+      setLoading(false);
     }
-    setLoaded(true);
-    setLoading(false);
   }
 
   async function verifyCredential({ email, password }) {
@@ -2289,21 +2300,21 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
               </button>
             </div>
             <label>
-              위도
               <input
+                aria-label="위도"
                 inputMode="decimal"
                 value={draft.lat || ''}
                 onChange={(event) => updateField('lat', event.target.value)}
-                placeholder="예: 37.573500"
+                placeholder="위도 예: 37.573500"
               />
             </label>
             <label>
-              경도
               <input
+                aria-label="경도"
                 inputMode="decimal"
                 value={draft.lng || ''}
                 onChange={(event) => updateField('lng', event.target.value)}
-                placeholder="예: 126.944613"
+                placeholder="경도 예: 126.944613"
               />
             </label>
           </div>

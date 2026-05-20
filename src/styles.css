@@ -1280,6 +1280,7 @@ h2 {
   justify-content: space-between;
   gap: 10px;
   height: 17px;
+  margin-bottom: 0;
 }
 
 .coordinate-fields-head > span {
@@ -1304,7 +1305,7 @@ h2 {
 
 .coordinate-fields label {
   display: grid;
-  gap: 8px;
+  gap: 0;
 }
 
 .visit-field-grid textarea {
