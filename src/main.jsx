@@ -35,7 +35,6 @@ import {
   ReceiptText,
   Save,
   Sparkles,
-  Star,
   Trash2,
   Users,
   WalletCards,
@@ -110,16 +109,18 @@ const emptyVisitSections = {
   },
 };
 
+const visitPurposeOptions = ['실거주', '투자', '실거주+투자', '비교 조사'];
+
 const visitSectionGroups = [
   {
     key: 'before',
     title: '1. 임장 전',
     description: '지역, 단지, 가격 흐름을 먼저 잡아두는 구간',
     fields: [
-      ['region', '지역 선택 / 생활권'],
-      ['complex', '단지 후보 / 주변 아파트'],
-      ['price', '실거래 · 호가 · 전세가'],
-      ['checklist', '미리 확인할 질문'],
+      ['region', '지역 선택 / 생활권', '예: 마포구 아현 생활권, 공덕역-애오개역 사이. 출퇴근 동선과 학교 배정까지 같이 보기'],
+      ['complex', '단지 후보 / 주변 아파트', '예: A단지 중심으로 B, C단지도 함께 비교. 한 단지만 보지 않기'],
+      ['price', '실거래 · 호가 · 전세가', '예: 최근 3개월 실거래, 현재 최저 호가, 전세가율, 갭 차이'],
+      ['checklist', '미리 확인할 질문', '예: 주차 대수, 누수 이력, 관리비, 로얄동/로얄층, 급매 여부'],
     ],
   },
   {
@@ -127,10 +128,10 @@ const visitSectionGroups = [
     title: '2. 현장 확인',
     description: '역, 정문, 상권, 언덕처럼 직접 걸어봐야 보이는 것',
     fields: [
-      ['station', '역-정문 거리 / 체감 시간'],
-      ['atmosphere', '거리 분위기 / 보행감'],
-      ['amenities', '상권 · 학원가 · 마트 · 병원'],
-      ['slope', '언덕 / 경사 / 야간 이동'],
+      ['station', '역-정문 거리 / 체감 시간', '예: 역 3번 출구에서 정문까지 도보 9분. 신호 2번, 밤길은 밝은 편'],
+      ['atmosphere', '거리 분위기 / 보행감', '예: 평일 저녁 유동인구, 골목 폭, 아이 데리고 걷기 편한지'],
+      ['amenities', '상권 · 학원가 · 마트 · 병원', '예: 대형마트 10분, 편의점 2곳, 초등 학원가는 역 반대편'],
+      ['slope', '언덕 / 경사 / 야간 이동', '예: 단지 후문 쪽 경사 있음. 유모차/비 오는 날 체감 체크 필요'],
     ],
   },
   {
@@ -138,12 +139,12 @@ const visitSectionGroups = [
     title: '3. 단지와 세대',
     description: '단지 안에서 오래 살 때 매일 마주치는 조건',
     fields: [
-      ['age', '연식 / 관리상태'],
-      ['parking', '주차장 / 이중주차 / 동선'],
-      ['elevator', '엘리베이터 / 필로티'],
-      ['landscaping', '조경 / 커뮤니티 / 동간거리'],
-      ['view', '조망 / 향 / 층별 차이'],
-      ['noise', '소음 / 냄새 / 주변 위험요소'],
+      ['age', '연식 / 관리상태', '예: 2008년식이지만 외벽과 공용부 관리 양호. 복도 냄새 없음'],
+      ['parking', '주차장 / 이중주차 / 동선', '예: 지하주차장 연결동, 저녁 8시 기준 여유/부족, 이중주차 여부'],
+      ['elevator', '엘리베이터 / 필로티', '예: 동별 엘베 2대, 출근 시간 대기감, 필로티 바람/소음'],
+      ['landscaping', '조경 / 커뮤니티 / 동간거리', '예: 산책로 좋음, 놀이터 상태, 커뮤니티 실제 이용감'],
+      ['view', '조망 / 향 / 층별 차이', '예: 남동향 12층부터 트임. 저층은 앞동 간섭 있음'],
+      ['noise', '소음 / 냄새 / 주변 위험요소', '예: 대로변 차 소리, 음식점 냄새, 학교/상가 소음'],
     ],
   },
   {
@@ -151,13 +152,13 @@ const visitSectionGroups = [
     title: '4. 부동산 방문',
     description: '중개사에게 들은 정보와 시장 분위기',
     fields: [
-      ['purpose', '실거주인지 투자용인지'],
-      ['budget', '내 자본금 공개 여부 / 협상 포인트'],
-      ['alternatives', '같이 보는 단지'],
-      ['royal', '로얄동 · 로얄층'],
-      ['redevelopment', '재건축 · 재개발 진행상황'],
-      ['localMood', '요즘 거래 분위기'],
-      ['food', '근처 맛집 / 쉬어갈 곳'],
+      ['purpose', '실거주인지 투자용인지', '예: 우리는 실거주 중심이라고 말했을 때 추천 매물이 어떻게 바뀌었는지'],
+      ['budget', '내 자본금 공개 여부 / 협상 포인트', '예: 예산 공개 전후 반응, 네고 가능 금액, 잔금 일정'],
+      ['alternatives', '같이 보는 단지', '예: 같은 가격대에서 비교 추천받은 단지와 이유'],
+      ['royal', '로얄동 · 로얄층', '예: 선호 동/층, 비선호 라인, 가격 차이가 나는 이유'],
+      ['redevelopment', '재건축 · 재개발 진행상황', '예: 추진위/조합 단계, 안전진단, 주변 개발 호재의 실제 온도'],
+      ['localMood', '요즘 거래 분위기', '예: 최근 문의량, 매수자/매도자 우위, 급매 소진 여부'],
+      ['food', '근처 맛집 / 쉬어갈 곳', '예: 다시 임장 갈 때 들를 식당, 카페, 쉬기 좋은 동선'],
     ],
   },
   {
@@ -165,10 +166,10 @@ const visitSectionGroups = [
     title: '5. 다녀와서',
     description: '좋았던 점, 아쉬운 점, 다음 액션을 바로 남기기',
     fields: [
-      ['pros', '좋았던 점'],
-      ['cons', '아쉬운 점'],
-      ['risk', '금지사항 / 리스크'],
-      ['nextAction', '다음에 확인할 것'],
+      ['pros', '좋았던 점', '예: 역세권 체감, 단지 조용함, 상권 접근성, 생각보다 좋은 포인트'],
+      ['cons', '아쉬운 점', '예: 주차, 언덕, 소음, 관리상태, 가격 대비 애매했던 점'],
+      ['risk', '금지사항 / 리스크', '예: 돈 내고 임장크루 금지, 매수 전 반드시 재확인할 리스크'],
+      ['nextAction', '다음에 확인할 것', '예: 낮/밤 재방문, 다른 타입 보기, 관리비 확인, 실거래 추적'],
     ],
   },
 ];
@@ -631,7 +632,7 @@ function App() {
   const pageTitles = {
     assets: '월별 자산 현황',
     ltv: 'LTV 계산기',
-    visits: '임장 후기',
+    visits: '임장 노트',
     tips: '부동산 꿀팁',
   };
 
@@ -850,7 +851,7 @@ function App() {
             </button>
             <button className={page === 'visits' ? 'active' : ''} onClick={() => setPage('visits')}>
               <ClipboardList size={16} />
-              임장 후기
+              임장 노트
             </button>
             <button className={page === 'tips' ? 'active' : ''} onClick={() => setPage('tips')}>
               <FileText size={16} />
@@ -1738,7 +1739,7 @@ function VisitBoard({ session }) {
 
   async function loadVisits() {
     if (!isSupabaseReady) {
-      setMessage('Supabase 연결 후 임장 기록을 저장할 수 있습니다.');
+      setMessage('Supabase 연결 후 임장 노트를 저장할 수 있습니다.');
       return;
     }
 
@@ -1750,10 +1751,10 @@ function VisitBoard({ session }) {
       .order('updated_at', { ascending: false });
 
     if (error) {
-      setMessage(`임장 기록을 불러오지 못했습니다. Supabase SQL을 실행했는지 확인해주세요. (${error.message})`);
+      setMessage(`임장 노트를 불러오지 못했습니다. Supabase SQL을 실행했는지 확인해주세요. (${error.message})`);
     } else {
       setVisits(data || []);
-      setMessage(data?.length ? '임장 기록을 불러왔습니다.' : '아직 저장된 임장 기록이 없습니다.');
+      setMessage(data?.length ? '임장 노트를 불러왔습니다.' : '아직 저장된 임장 노트가 없습니다.');
     }
     setLoading(false);
   }
@@ -1794,7 +1795,7 @@ function VisitBoard({ session }) {
     await loadVisits();
     setEditorVisit(null);
     setSelectedVisit(null);
-    showToast(wasEditing ? '임장 기록 수정 완료' : '임장 기록 저장 완료', wasEditing ? 'info' : 'success');
+    showToast(wasEditing ? '임장 노트 수정 완료' : '임장 노트 저장 완료', wasEditing ? 'info' : 'success');
     return { ok: true };
   }
 
@@ -1808,7 +1809,7 @@ function VisitBoard({ session }) {
     await loadVisits();
     if (selectedVisit?.id === deleteVisit.id) setSelectedVisit(null);
     setDeleteVisit(null);
-    showToast('임장 기록 삭제 완료', 'danger');
+    showToast('임장 노트 삭제 완료', 'danger');
     return { ok: true };
   }
 
@@ -1827,12 +1828,12 @@ function VisitBoard({ session }) {
       <div className="visits-hero">
         <div>
           <p className="section-kicker">Field Notes</p>
-          <h2>임장 후기 보드</h2>
+          <h2>임장 노트 보드</h2>
           <p>단지 분위기, 역과의 거리, 상권, 부동산에서 들은 이야기까지 같은 기준으로 남겨두는 현장 기록장입니다.</p>
         </div>
         <button className="primary-button" onClick={() => setEditorVisit(createEmptyVisitRecord())}>
           <Plus size={17} />
-          임장 기록 작성
+          임장 노트 작성
         </button>
       </div>
 
@@ -1851,7 +1852,7 @@ function VisitBoard({ session }) {
             <VisitEmptyState onCreate={() => setEditorVisit(createEmptyVisitRecord())} />
           ) : visits.map((visit) => (
             <button key={visit.id} className="visit-card" onClick={() => setSelectedVisit(visit)}>
-              <span className="visit-score"><Star size={15} fill="currentColor" /> {visit.score || 0}/5</span>
+              <span className="visit-score"><StaticStarRating value={visit.score || 0} /> {visit.score || 0}/5</span>
               <strong>{visit.apartment_name}</strong>
               <em>{visit.address || '주소 미입력'}</em>
               <p>{visit.summary || stripHtml(Object.values(visit.sections || {}).flatMap((section) => Object.values(section || {})).join(' ')).slice(0, 90) || '기록 요약이 없습니다.'}</p>
@@ -1877,7 +1878,7 @@ function VisitBoard({ session }) {
 
       {deleteVisit && (
         <CredentialDeleteModal
-          title="임장 기록 삭제"
+          title="임장 노트 삭제"
           headline={`${deleteVisit.apartment_name} 기록을 삭제합니다.`}
           description="삭제하려면 등록된 계정의 이메일과 비밀번호를 입력해주세요."
           onClose={() => setDeleteVisit(null)}
@@ -1904,13 +1905,190 @@ function VisitEmptyState({ onCreate }) {
         <ClipboardList size={42} />
       </div>
       <p className="section-kicker">First Visit</p>
-      <h3>첫 임장 기록을 남겨보세요</h3>
+      <h3>첫 임장 노트를 남겨보세요</h3>
       <p>임장 전 준비부터 다녀온 뒤 판단까지 한 번에 정리할 수 있게 기준을 잡아두었습니다.</p>
       <button className="empty-create-button" onClick={onCreate}>
         <Sparkles size={18} />
-        임장 기록 작성
+        임장 노트 작성
         <ArrowUpRight size={17} />
       </button>
+    </div>
+  );
+}
+
+function StarRatingInput({ value, onChange }) {
+  const [hoverValue, setHoverValue] = useState(null);
+  const savedValue = Number(value);
+  const activeValue = hoverValue ?? (Number.isFinite(savedValue) ? savedValue : 0);
+
+  function valueFromPointer(event, index) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const isHalf = event.clientX - rect.left <= rect.width / 2;
+    return index + (isHalf ? 0.5 : 1);
+  }
+
+  return (
+    <div className="star-rating-input" onMouseLeave={() => setHoverValue(null)}>
+      <div className="star-row" role="radiogroup" aria-label="총점">
+        {Array.from({ length: 5 }, (_, index) => {
+          const fill = Math.max(0, Math.min(1, activeValue - index)) * 100;
+          return (
+            <button
+              key={index}
+              type="button"
+              className="star-button"
+              onMouseMove={(event) => setHoverValue(valueFromPointer(event, index))}
+              onFocus={() => setHoverValue(index + 1)}
+              onBlur={() => setHoverValue(null)}
+              onClick={(event) => onChange(valueFromPointer(event, index))}
+              aria-label={`${index + 1}점`}
+            >
+              <span className="star-base">★</span>
+              <span className="star-fill" style={{ width: `${fill}%` }}>★</span>
+            </button>
+          );
+        })}
+      </div>
+      <strong>{activeValue.toFixed(1)} / 5</strong>
+    </div>
+  );
+}
+
+function StaticStarRating({ value }) {
+  const rating = Number(value) || 0;
+  return (
+    <span className="static-star-rating" aria-label={`${rating}점`}>
+      {Array.from({ length: 5 }, (_, index) => {
+        const fill = Math.max(0, Math.min(1, rating - index)) * 100;
+        return (
+          <span className="static-star" key={index}>
+            <span className="star-base">★</span>
+            <span className="star-fill" style={{ width: `${fill}%` }}>★</span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+function VisitPurposeSelect({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const selectRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function closeOnOutsideClick(event) {
+      if (selectRef.current && !selectRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [open]);
+
+  return (
+    <div className={`visit-select ${open ? 'open' : ''}`} ref={selectRef}>
+      <button type="button" className="visit-select-trigger" onClick={() => setOpen((current) => !current)}>
+        <span>{value}</span>
+        <ChevronDown size={16} />
+      </button>
+      {open && (
+        <div className="visit-select-menu">
+          {visitPurposeOptions.map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={option === value ? 'active' : ''}
+              onClick={() => {
+                onChange(option);
+                setOpen(false);
+              }}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VisitDatePicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const dateRef = useRef(null);
+  const selectedDate = value ? new Date(`${value}T00:00:00`) : new Date();
+  const [viewDate, setViewDate] = useState(selectedDate);
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = firstDay.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [
+    ...Array.from({ length: startOffset }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+  ];
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function closeOnOutsideClick(event) {
+      if (dateRef.current && !dateRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [open]);
+
+  function moveMonth(amount) {
+    setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
+  }
+
+  function selectDay(day) {
+    const nextDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    onChange(nextDate);
+    setOpen(false);
+  }
+
+  return (
+    <div className="visit-date-picker" ref={dateRef}>
+      <button type="button" className="visit-date-trigger" onClick={() => setOpen((current) => !current)}>
+        <CalendarDays size={17} />
+        <span>{value || '방문일 선택'}</span>
+      </button>
+      {open && (
+        <div className="visit-date-popover">
+          <div className="month-popover-head">
+            <button type="button" onClick={() => moveMonth(-1)} title="이전 달">
+              <ChevronLeft size={16} />
+            </button>
+            <strong>{year}.{String(month + 1).padStart(2, '0')}</strong>
+            <button type="button" onClick={() => moveMonth(1)} title="다음 달">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          <div className="visit-weekdays">
+            {['일', '월', '화', '수', '목', '금', '토'].map((day) => <span key={day}>{day}</span>)}
+          </div>
+          <div className="visit-date-grid">
+            {cells.map((day, index) => (
+              day ? (
+                <button
+                  type="button"
+                  key={`${year}-${month}-${day}`}
+                  className={value === `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` ? 'active' : ''}
+                  onClick={() => selectDay(day)}
+                >
+                  {day}
+                </button>
+              ) : <span key={`empty-${index}`} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1956,7 +2134,7 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
       <div className="tip-editor-page-head">
         <div>
           <p className="section-kicker">Visit Editor</p>
-          <h2>{draft.id ? '임장 기록 수정' : '임장 기록 작성'}</h2>
+          <h2>{draft.id ? '임장 노트 수정' : '임장 노트 작성'}</h2>
         </div>
         <button className="secondary-button" onClick={onClose} type="button">
           <X size={17} />
@@ -1976,27 +2154,23 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
           </label>
           <label>
             방문일
-            <input type="date" value={draft.visit_date} onChange={(event) => updateField('visit_date', event.target.value)} />
+            <VisitDatePicker value={draft.visit_date} onChange={(nextDate) => updateField('visit_date', nextDate)} />
           </label>
           <label>
             목적
-            <select value={draft.purpose} onChange={(event) => updateField('purpose', event.target.value)}>
-              <option>실거주</option>
-              <option>투자</option>
-              <option>실거주+투자</option>
-              <option>비교 조사</option>
-            </select>
+            <VisitPurposeSelect value={draft.purpose} onChange={(nextPurpose) => updateField('purpose', nextPurpose)} />
           </label>
           <label>
             총점
-            <input type="number" min="1" max="5" step="0.5" value={draft.score} onChange={(event) => updateField('score', event.target.value)} />
+            <StarRatingInput value={draft.score} onChange={(nextScore) => updateField('score', nextScore)} />
           </label>
           <label>
             좌표
             <div className="coordinate-row">
-              <input value={draft.lat || ''} onChange={(event) => updateField('lat', event.target.value)} placeholder="위도" />
-              <input value={draft.lng || ''} onChange={(event) => updateField('lng', event.target.value)} placeholder="경도" />
+              <input value={draft.lat || ''} onChange={(event) => updateField('lat', event.target.value)} placeholder="위도 37.5665" />
+              <input value={draft.lng || ''} onChange={(event) => updateField('lng', event.target.value)} placeholder="경도 126.9780" />
             </div>
+            <small className="coordinate-help">네이버 지도에서 장소를 검색한 뒤 공유 링크나 URL의 좌표값을 참고해 입력하면 상세 화면 지도에 표시됩니다.</small>
           </label>
         </div>
 
@@ -2013,13 +2187,13 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
                 <p>{group.description}</p>
               </div>
               <div className="visit-field-grid">
-                {group.fields.map(([fieldKey, label]) => (
+                {group.fields.map(([fieldKey, label, placeholder]) => (
                   <label key={fieldKey}>
                     {label}
                     <textarea
                       value={draft.sections[group.key]?.[fieldKey] || ''}
                       onChange={(event) => updateSection(group.key, fieldKey, event.target.value)}
-                      placeholder="현장에서 본 것, 들은 것, 다시 확인할 것을 짧게 남겨주세요."
+                      placeholder={placeholder}
                     />
                   </label>
                 ))}
@@ -2089,7 +2263,7 @@ function VisitDetailModal({ visit, onClose, onEdit, onDelete }) {
 
         <article className="visit-detail-content">
           <div className="visit-summary-card">
-            <strong><Star size={16} fill="currentColor" /> {normalized.score}/5</strong>
+            <strong><StaticStarRating value={normalized.score} /> {normalized.score}/5</strong>
             <p>{normalized.summary || '한 줄 요약이 없습니다.'}</p>
           </div>
           {visitSectionGroups.map((group) => (
