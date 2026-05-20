@@ -1084,13 +1084,14 @@ h2 {
   color: #d7d9d3;
   font-size: 25px;
   line-height: 1;
-  transition: transform 140ms ease;
+  transition: color 140ms ease;
   filter: none;
   text-shadow: none;
+  box-shadow: none;
 }
 
 .star-button:hover {
-  transform: translateY(-1px) scale(1.05);
+  transform: none;
 }
 
 .static-star {
@@ -1102,6 +1103,7 @@ h2 {
   line-height: 1;
   filter: none;
   text-shadow: none;
+  box-shadow: none;
 }
 
 .star-glyph {
@@ -1264,22 +1266,28 @@ h2 {
   padding: 0 12px;
 }
 
+.visit-field-title {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+}
+
+.visit-map-url-tooltip {
+  color: #236e69;
+}
+
+.visit-map-url-tooltip > span {
+  width: 280px;
+  max-width: min(280px, calc(100vw - 40px));
+}
+
 .visit-field-grid textarea {
   min-height: 108px;
   padding: 12px;
   resize: vertical;
   line-height: 1.55;
-}
-
-.map-url-help {
-  color: #7a857b;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1.45;
-}
-
-.map-url-help.ready {
-  color: #236e69;
 }
 
 .visit-section-stack {

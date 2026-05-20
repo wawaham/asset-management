@@ -411,6 +411,41 @@ function parseMapCoordinates(rawUrl) {
   return null;
 }
 
+async function geocodeVisitAddress(address) {
+  const query = String(address || '').trim();
+  if (!query) return null;
+
+  try {
+    const url = new URL('https://nominatim.openstreetmap.org/search');
+    url.searchParams.set('format', 'jsonv2');
+    url.searchParams.set('limit', '1');
+    url.searchParams.set('accept-language', 'ko');
+    url.searchParams.set('q', query);
+    const response = await fetch(url.toString());
+    if (!response.ok) return null;
+    const [result] = await response.json();
+    const lat = Number(result?.lat);
+    const lng = Number(result?.lon);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+async function resolveVisitCoordinates(record) {
+  const normalized = normalizeVisitRecord(record);
+  const lat = Number(normalized.lat);
+  const lng = Number(normalized.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+
+  const urlCoordinates = parseMapCoordinates(normalized.map_url);
+  if (urlCoordinates) return urlCoordinates;
+
+  return geocodeVisitAddress(normalized.address || normalized.apartment_name);
+}
+
 function formatAxisAmount(value) {
   if (value >= 100000000) {
     const amount = value / 100000000;
@@ -1816,6 +1851,7 @@ function VisitBoard({ session }) {
 
   async function saveVisit(record) {
     const normalized = normalizeVisitRecord(record);
+    const coordinates = await resolveVisitCoordinates(normalized);
     const payload = {
       apartment_name: normalized.apartment_name.trim(),
       address: normalized.address.trim(),
@@ -1823,8 +1859,8 @@ function VisitBoard({ session }) {
       purpose: normalized.purpose,
       score: Number(normalized.score) || 0,
       map_url: normalized.map_url || '',
-      lat: normalized.lat ? Number(normalized.lat) : null,
-      lng: normalized.lng ? Number(normalized.lng) : null,
+      lat: coordinates ? coordinates.lat : null,
+      lng: coordinates ? coordinates.lng : null,
       summary: normalized.summary.trim(),
       sections: normalized.sections,
       author_email: session?.user?.email || '',
@@ -2220,13 +2256,16 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
             <input value={draft.address} onChange={(event) => updateField('address', event.target.value)} placeholder="예: 서울 서초구 반포동 ..." />
           </label>
           <label>
-            네이버 지도 URL
+            <span className="visit-field-title">
+              네이버 지도 URL
+              <span className="help-tooltip visit-map-url-tooltip" aria-label="네이버 지도 URL 설명">
+                <CircleHelp size={14} />
+                <span>
+                  긴 map.naver.com URL에 좌표가 포함되어 있으면 자동으로 마커가 표시됩니다. 좌표가 없으면 저장할 때 입력한 주소로 위치를 한 번 더 찾습니다.
+                </span>
+              </span>
+            </span>
             <input value={draft.map_url || ''} onChange={(event) => updateMapUrl(event.target.value)} placeholder="네이버 지도에서 장소를 검색한 뒤 주소창 URL 붙여넣기" />
-            <small className={`map-url-help ${draft.lat && draft.lng ? 'ready' : ''}`}>
-              {draft.lat && draft.lng
-                ? 'URL에서 위치를 찾았습니다. 상세보기 지도에 마커로 표시됩니다.'
-                : '긴 map.naver.com URL에 좌표가 포함되어 있으면 자동으로 마커가 표시됩니다.'}
-            </small>
           </label>
           <label>
             방문일
@@ -2285,12 +2324,40 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
 
 function VisitDetailModal({ visit, onClose, onEdit, onDelete }) {
   const normalized = normalizeVisitRecord(visit);
+  const [resolvedCoordinates, setResolvedCoordinates] = useState(null);
   const hasCoordinates = Number.isFinite(Number(normalized.lat)) && Number.isFinite(Number(normalized.lng));
+  const displayCoordinates = hasCoordinates
+    ? { lat: Number(normalized.lat), lng: Number(normalized.lng) }
+    : resolvedCoordinates;
+  const canShowMap = Boolean(
+    displayCoordinates
+      && Number.isFinite(Number(displayCoordinates.lat))
+      && Number.isFinite(Number(displayCoordinates.lng)),
+  );
   const mapQuery = encodeURIComponent(normalized.address || normalized.apartment_name);
   const naverMapUrl = normalized.map_url || `https://map.naver.com/p/search/${mapQuery}`;
-  const osmUrl = hasCoordinates
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(normalized.lng) - 0.006}%2C${Number(normalized.lat) - 0.004}%2C${Number(normalized.lng) + 0.006}%2C${Number(normalized.lat) + 0.004}&layer=mapnik&marker=${normalized.lat}%2C${normalized.lng}`
+  const osmUrl = canShowMap
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(displayCoordinates.lng) - 0.006}%2C${Number(displayCoordinates.lat) - 0.004}%2C${Number(displayCoordinates.lng) + 0.006}%2C${Number(displayCoordinates.lat) + 0.004}&layer=mapnik&marker=${displayCoordinates.lat}%2C${displayCoordinates.lng}`
     : '';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveCoordinates() {
+      if (hasCoordinates) {
+        setResolvedCoordinates(null);
+        return;
+      }
+
+      const coordinates = await resolveVisitCoordinates(normalized);
+      if (!cancelled) setResolvedCoordinates(coordinates);
+    }
+
+    resolveCoordinates();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasCoordinates, normalized.map_url, normalized.address, normalized.apartment_name, normalized.lat, normalized.lng]);
 
   return (
     <Modal title="" size="tip-detail" onClose={onClose}>
@@ -2314,13 +2381,13 @@ function VisitDetailModal({ visit, onClose, onEdit, onDelete }) {
 
       <section className="visit-detail-layout">
         <aside className="visit-map-card">
-          {hasCoordinates ? (
+          {canShowMap ? (
             <iframe title={`${normalized.apartment_name} 지도`} src={osmUrl} loading="lazy" />
           ) : (
             <div className="visit-map-placeholder">
               <MapPin size={36} />
-              <strong>좌표를 입력하면 지도에 마킹됩니다</strong>
-              <span>위도와 경도를 기록에 추가하면 상세 화면에서 위치를 바로 확인할 수 있어요.</span>
+              <strong>위치를 찾지 못했습니다</strong>
+              <span>네이버 지도 URL에 좌표가 없으면 입력한 주소로 위치를 찾습니다. 주소를 조금 더 자세히 적어보세요.</span>
             </div>
           )}
           <a href={naverMapUrl} target="_blank" rel="noreferrer">
