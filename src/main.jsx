@@ -701,6 +701,7 @@ function App() {
   const pageTitles = {
     assets: '월별 자산 현황',
     ltv: 'LTV 계산기',
+    costs: '부대비용 계산기',
     visits: '임장 노트',
     tips: '부동산 꿀팁',
   };
@@ -918,6 +919,10 @@ function App() {
               <Calculator size={16} />
               LTV 계산기
             </button>
+            <button className={page === 'costs' ? 'active' : ''} onClick={() => setPage('costs')}>
+              <ReceiptText size={16} />
+              부대비용
+            </button>
             <button className={page === 'visits' ? 'active' : ''} onClick={() => setPage('visits')}>
               <ClipboardList size={16} />
               임장 노트
@@ -1078,6 +1083,8 @@ function App() {
         </>
       ) : page === 'ltv' ? (
         <LtvCalculator />
+      ) : page === 'costs' ? (
+        <PurchaseCostCalculator />
       ) : page === 'visits' ? (
         <VisitBoard session={session} />
       ) : (
@@ -1261,6 +1268,192 @@ function AnimatedWon({ value }) {
   }, [value]);
 
   return <span className="ticker-number">{formatWon(displayValue)}</span>;
+}
+
+function PurchaseCostCalculator() {
+  const [homePrice, setHomePrice] = useState(formatAmountInput(950000000));
+  const [isFirstHomeBuyer, setIsFirstHomeBuyer] = useState(true);
+  const [applyRuralTax, setApplyRuralTax] = useState(false);
+  const [bondRegion, setBondRegion] = useState('metro');
+  const [bondDiscountRate, setBondDiscountRate] = useState('10');
+  const [includeLegalVat, setIncludeLegalVat] = useState(true);
+  const [miscCost, setMiscCost] = useState(formatAmountInput(150000));
+
+  const price = parseWonInput(homePrice);
+  const result = calculatePurchaseCosts({
+    price,
+    isFirstHomeBuyer,
+    applyRuralTax,
+    bondRegion,
+    bondDiscountRate: Number(bondDiscountRate) || 0,
+    includeLegalVat,
+    miscCost: parseWonInput(miscCost),
+  });
+  const totalNeeded = price + result.total;
+  const costItems = [
+    {
+      label: '취득세',
+      amount: result.acquisitionTax,
+      meta: `기본 ${formatWon(result.acquisitionTaxBeforeDiscount)} · 생애최초 감면 ${formatWon(result.firstHomeDiscount)}`,
+      rate: `${(result.acquisitionTaxRate * 100).toFixed(2)}%`,
+      tone: 'strong',
+    },
+    {
+      label: '지방교육세',
+      amount: result.educationTax,
+      meta: '취득세율 구간 기준',
+      rate: `${(result.educationTaxRate * 100).toFixed(2)}%`,
+    },
+    {
+      label: '농어촌특별세',
+      amount: result.ruralTax,
+      meta: applyRuralTax ? '전용 85㎡ 초과로 가정' : '전용 85㎡ 이하로 미적용',
+      rate: `${(result.ruralTaxRate * 100).toFixed(2)}%`,
+    },
+    {
+      label: '중개보수',
+      amount: result.brokerage.amount,
+      meta: result.brokerage.cap ? `상한 ${formatWon(result.brokerage.cap)} 적용` : '서울 기준 주택 매매 상한요율',
+      rate: `${(result.brokerage.rate * 100).toFixed(2)}%`,
+    },
+    {
+      label: '국민주택채권 할인손실',
+      amount: result.bondDiscountLoss,
+      meta: `매입액 ${formatWon(result.bondPurchase)} · 할인율 ${Number(bondDiscountRate) || 0}%`,
+      rate: `${(result.bondRate * 100).toFixed(2)}%`,
+    },
+    {
+      label: '법무사 보수',
+      amount: result.legalFee,
+      meta: `기본 보수 ${formatWon(result.legalFeeBase)}${includeLegalVat ? ` · VAT ${formatWon(result.legalVat)}` : ''}`,
+      rate: '표 기준',
+    },
+    {
+      label: '인지/증지 등 기타',
+      amount: result.miscCost,
+      meta: '실제 견적에 따라 직접 조정',
+      rate: '직접',
+    },
+  ];
+
+  function updateMoney(setter, value) {
+    setter(formatAmountInput(value));
+  }
+
+  return (
+    <section className="cost-page">
+      <div className="cost-hero">
+        <div>
+          <p className="section-kicker">Purchase Cost Simulator</p>
+          <h2>주택 매매 부대비용 계산</h2>
+          <p>아파트 매매 기준으로 취득세, 중개보수, 국민주택채권 할인손실, 법무사 보수까지 한 번에 계산합니다.</p>
+        </div>
+        <div className="cost-hero-total">
+          <span>예상 총 필요금액</span>
+          <strong><AnimatedWon value={totalNeeded} /></strong>
+          <small>주택금액 + 부대비용</small>
+        </div>
+      </div>
+
+      <div className="cost-layout">
+        <aside className="cost-inputs">
+          <div className="cost-panel-title">
+            <Landmark size={22} />
+            <div>
+              <p className="section-kicker">Inputs</p>
+              <h3>기본 조건</h3>
+            </div>
+          </div>
+
+          <label>
+            주택금액
+            <div className="money-input">
+              <input value={homePrice} onChange={(event) => updateMoney(setHomePrice, event.target.value)} />
+              <span>원</span>
+            </div>
+          </label>
+
+          <div className="cost-toggle-grid">
+            <label>
+              <input type="checkbox" checked={isFirstHomeBuyer} onChange={(event) => setIsFirstHomeBuyer(event.target.checked)} />
+              <span>생애최초 취득세 200만원 감면</span>
+            </label>
+            <label>
+              <input type="checkbox" checked={applyRuralTax} onChange={(event) => setApplyRuralTax(event.target.checked)} />
+              <span>전용 85㎡ 초과 농특세 적용</span>
+            </label>
+            <label>
+              <input type="checkbox" checked={includeLegalVat} onChange={(event) => setIncludeLegalVat(event.target.checked)} />
+              <span>법무사 VAT 포함</span>
+            </label>
+          </div>
+
+          <label>
+            채권 지역
+            <div className="cost-segment">
+              <button type="button" className={bondRegion === 'metro' ? 'active' : ''} onClick={() => setBondRegion('metro')}>서울·광역시</button>
+              <button type="button" className={bondRegion === 'other' ? 'active' : ''} onClick={() => setBondRegion('other')}>기타지역</button>
+            </div>
+          </label>
+
+          <label>
+            채권 할인율
+            <div className="money-input">
+              <input value={bondDiscountRate} onChange={(event) => setBondDiscountRate(event.target.value)} />
+              <span>%</span>
+            </div>
+          </label>
+
+          <label>
+            기타 비용
+            <div className="money-input">
+              <input value={miscCost} onChange={(event) => updateMoney(setMiscCost, event.target.value)} />
+              <span>원</span>
+            </div>
+          </label>
+
+          <p className="cost-note">표 기준을 앱에 옮긴 예상치입니다. 실제 세금, 채권 할인율, 법무사 보수는 계약 시점과 견적에 따라 달라질 수 있습니다.</p>
+        </aside>
+
+        <section className="cost-results">
+          <div className="cost-summary-grid">
+            <article className="cost-summary-card strong">
+              <ReceiptText size={32} />
+              <span>부대비용 합계</span>
+              <strong><AnimatedWon value={result.total} /></strong>
+            </article>
+            <article className="cost-summary-card">
+              <CircleDollarSign size={32} />
+              <span>주택금액</span>
+              <strong>{formatWon(price)}</strong>
+            </article>
+            <article className="cost-summary-card">
+              <WalletCards size={32} />
+              <span>현금 준비 기준</span>
+              <strong>{formatWon(totalNeeded)}</strong>
+            </article>
+          </div>
+
+          <div className="cost-breakdown">
+            <div>
+              <p className="section-kicker">Breakdown</p>
+              <h3>항목별 계산</h3>
+            </div>
+            {costItems.map((item) => (
+              <article className={`cost-row ${item.tone || ''}`} key={item.label}>
+                <div>
+                  <span>{item.label}</span>
+                  <small>{item.meta}</small>
+                </div>
+                <em>{item.rate}</em>
+                <strong>{formatWon(item.amount)}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+    </section>
+  );
 }
 
 function TipsBoard({ session }) {
@@ -1802,6 +1995,106 @@ function createEmptyVisitRecord() {
     lng: '',
     summary: '',
     sections: JSON.parse(JSON.stringify(emptyVisitSections)),
+  };
+}
+
+function getBrokerageFee(price) {
+  const brackets = [
+    { max: 50000000, rate: 0.006, cap: 250000 },
+    { max: 200000000, rate: 0.005, cap: 800000 },
+    { max: 900000000, rate: 0.004 },
+    { max: 1200000000, rate: 0.005 },
+    { max: 1500000000, rate: 0.006 },
+    { max: Infinity, rate: 0.007 },
+  ];
+  const bracket = brackets.find((item) => price < item.max) || brackets.at(-1);
+  const fee = price * bracket.rate;
+  return {
+    amount: bracket.cap ? Math.min(fee, bracket.cap) : fee,
+    rate: bracket.rate,
+    cap: bracket.cap || null,
+  };
+}
+
+function getAcquisitionTaxRate(price) {
+  if (price <= 600000000) return 0.01;
+  if (price <= 900000000) return (((price / hundredMillion) * 2) / 3 - 3) / 100;
+  return 0.03;
+}
+
+function getHousingBondRate(price, region) {
+  const isMetro = region === 'metro';
+  const brackets = [
+    { max: 50000000, metro: 0.013, other: 0.013 },
+    { max: 100000000, metro: 0.019, other: 0.014 },
+    { max: 160000000, metro: 0.021, other: 0.016 },
+    { max: 260000000, metro: 0.023, other: 0.018 },
+    { max: 600000000, metro: 0.026, other: 0.021 },
+    { max: Infinity, metro: 0.031, other: 0.026 },
+  ];
+  const bracket = brackets.find((item) => price < item.max) || brackets.at(-1);
+  return isMetro ? bracket.metro : bracket.other;
+}
+
+function getLegalServiceFee(price) {
+  const brackets = [
+    { min: 0, base: 210000, basePoint: 0, rate: 0 },
+    { min: 50000000, base: 210000, basePoint: 50000000, rate: 0.001 },
+    { min: 100000000, base: 260000, basePoint: 100000000, rate: 0.0009 },
+    { min: 300000000, base: 440000, basePoint: 300000000, rate: 0.0008 },
+    { min: 500000000, base: 600000, basePoint: 500000000, rate: 0.0007 },
+    { min: 1000000000, base: 950000, basePoint: 1000000000, rate: 0.0005 },
+    { min: 2000000000, base: 1450000, basePoint: 2000000000, rate: 0.0004 },
+    { min: 20000000000, base: 8650000, basePoint: 20000000000, rate: 0.0001 },
+  ];
+  const bracket = [...brackets].reverse().find((item) => price > item.min) || brackets[0];
+  return bracket.base + Math.max(0, price - bracket.basePoint) * bracket.rate;
+}
+
+function calculatePurchaseCosts({
+  price,
+  isFirstHomeBuyer,
+  applyRuralTax,
+  bondRegion,
+  bondDiscountRate,
+  includeLegalVat,
+  miscCost,
+}) {
+  const brokerage = getBrokerageFee(price);
+  const acquisitionTaxRate = getAcquisitionTaxRate(price);
+  const acquisitionTaxBeforeDiscount = price * acquisitionTaxRate;
+  const firstHomeDiscount = isFirstHomeBuyer ? Math.min(acquisitionTaxBeforeDiscount, 2000000) : 0;
+  const acquisitionTax = Math.max(0, acquisitionTaxBeforeDiscount - firstHomeDiscount);
+  const educationTaxRate = price <= 600000000 ? 0.001 : price <= 900000000 ? acquisitionTaxRate / 10 : 0.003;
+  const educationTax = price * educationTaxRate;
+  const ruralTaxRate = applyRuralTax ? 0.002 : 0;
+  const ruralTax = price * ruralTaxRate;
+  const bondRate = getHousingBondRate(price, bondRegion);
+  const bondPurchase = price * bondRate;
+  const bondDiscountLoss = bondPurchase * (bondDiscountRate / 100);
+  const legalFeeBase = getLegalServiceFee(price);
+  const legalVat = includeLegalVat ? legalFeeBase * 0.1 : 0;
+  const legalFee = legalFeeBase + legalVat;
+  const total = acquisitionTax + educationTax + ruralTax + brokerage.amount + bondDiscountLoss + legalFee + miscCost;
+
+  return {
+    total,
+    acquisitionTaxRate,
+    acquisitionTaxBeforeDiscount,
+    firstHomeDiscount,
+    acquisitionTax,
+    educationTaxRate,
+    educationTax,
+    ruralTaxRate,
+    ruralTax,
+    brokerage,
+    bondRate,
+    bondPurchase,
+    bondDiscountLoss,
+    legalFeeBase,
+    legalVat,
+    legalFee,
+    miscCost,
   };
 }
 
