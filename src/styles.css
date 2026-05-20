@@ -1085,6 +1085,8 @@ h2 {
   font-size: 25px;
   line-height: 1;
   transition: transform 140ms ease;
+  filter: none;
+  text-shadow: none;
 }
 
 .star-button:hover {
@@ -1098,6 +1100,8 @@ h2 {
   color: #d7d9d3;
   font-size: 15px;
   line-height: 1;
+  filter: none;
+  text-shadow: none;
 }
 
 .star-base,
@@ -1220,13 +1224,6 @@ h2 {
   color: #ffffff;
 }
 
-.coordinate-help {
-  color: #7a857b;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1.45;
-}
-
 .visit-empty-card {
   grid-column: 1 / -1;
 }
@@ -1282,6 +1279,13 @@ h2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.field-label-with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
 }
 
 .visit-section-stack {

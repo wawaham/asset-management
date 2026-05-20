@@ -71,26 +71,39 @@ const dsrRatio = 0.4;
 const stressRateAdd = 1.5;
 const emptyTipContent = '<p></p>';
 const tipImageBucket = 'tip-images';
+const defaultVisitQuestions = [
+  '주차 대수 / 이중주차 여부',
+  '누수 이력 / 수리 이력',
+  '관리비와 장기수선충당금',
+  '로얄동 / 로얄층 / 비선호 라인',
+  '급매 여부와 네고 가능 금액',
+].join('\n');
+
 const emptyVisitSections = {
   before: {
     region: '',
     complex: '',
     price: '',
-    checklist: '',
+    questions: defaultVisitQuestions,
   },
   field: {
     station: '',
     atmosphere: '',
     amenities: '',
     slope: '',
-  },
-  apartment: {
+    food: '',
     age: '',
     parking: '',
     elevator: '',
     landscaping: '',
     view: '',
     noise: '',
+  },
+  after: {
+    pros: '',
+    cons: '',
+    risk: '',
+    nextAction: '',
   },
   realtor: {
     purpose: '',
@@ -99,13 +112,6 @@ const emptyVisitSections = {
     royal: '',
     redevelopment: '',
     localMood: '',
-    food: '',
-  },
-  after: {
-    pros: '',
-    cons: '',
-    risk: '',
-    nextAction: '',
   },
 };
 
@@ -120,31 +126,36 @@ const visitSectionGroups = [
       ['region', '지역 선택 / 생활권', '예: 마포구 아현 생활권, 공덕역-애오개역 사이. 출퇴근 동선과 학교 배정까지 같이 보기'],
       ['complex', '단지 후보 / 주변 아파트', '예: A단지 중심으로 B, C단지도 함께 비교. 한 단지만 보지 않기'],
       ['price', '실거래 · 호가 · 전세가', '예: 최근 3개월 실거래, 현재 최저 호가, 전세가율, 갭 차이'],
-      ['checklist', '미리 확인할 질문', '예: 주차 대수, 누수 이력, 관리비, 로얄동/로얄층, 급매 여부'],
+      ['questions', '기본 확인 항목', '임장 전에 물어볼 질문을 줄 단위로 정리해두세요.'],
     ],
   },
   {
     key: 'field',
     title: '2. 현장 확인',
-    description: '역, 정문, 상권, 언덕처럼 직접 걸어봐야 보이는 것',
+    description: '단지 안팎에서 직접 걸어봐야 알 수 있는 조건',
     fields: [
       ['station', '역-정문 거리 / 체감 시간', '예: 역 3번 출구에서 정문까지 도보 9분. 신호 2번, 밤길은 밝은 편'],
       ['atmosphere', '거리 분위기 / 보행감', '예: 평일 저녁 유동인구, 골목 폭, 아이 데리고 걷기 편한지'],
       ['amenities', '상권 · 학원가 · 마트 · 병원', '예: 대형마트 10분, 편의점 2곳, 초등 학원가는 역 반대편'],
       ['slope', '언덕 / 경사 / 야간 이동', '예: 단지 후문 쪽 경사 있음. 유모차/비 오는 날 체감 체크 필요'],
-    ],
-  },
-  {
-    key: 'apartment',
-    title: '3. 단지와 세대',
-    description: '단지 안에서 오래 살 때 매일 마주치는 조건',
-    fields: [
+      ['food', '근처 맛집 / 쉬어갈 곳', '예: 다시 임장 갈 때 들를 식당, 카페, 쉬기 좋은 동선'],
       ['age', '연식 / 관리상태', '예: 2008년식이지만 외벽과 공용부 관리 양호. 복도 냄새 없음'],
       ['parking', '주차장 / 이중주차 / 동선', '예: 지하주차장 연결동, 저녁 8시 기준 여유/부족, 이중주차 여부'],
       ['elevator', '엘리베이터 / 필로티', '예: 동별 엘베 2대, 출근 시간 대기감, 필로티 바람/소음'],
       ['landscaping', '조경 / 커뮤니티 / 동간거리', '예: 산책로 좋음, 놀이터 상태, 커뮤니티 실제 이용감'],
       ['view', '조망 / 향 / 층별 차이', '예: 남동향 12층부터 트임. 저층은 앞동 간섭 있음'],
       ['noise', '소음 / 냄새 / 주변 위험요소', '예: 대로변 차 소리, 음식점 냄새, 학교/상가 소음'],
+    ],
+  },
+  {
+    key: 'after',
+    title: '3. 다녀와서',
+    description: '좋았던 점, 아쉬운 점, 다음 액션을 바로 남기기',
+    fields: [
+      ['pros', '좋았던 점', '예: 역세권 체감, 단지 조용함, 상권 접근성, 생각보다 좋은 포인트'],
+      ['cons', '아쉬운 점', '예: 주차, 언덕, 소음, 관리상태, 가격 대비 애매했던 점'],
+      ['risk', '금지사항 / 리스크', '예: 돈 내고 임장크루 금지, 매수 전 반드시 재확인할 리스크'],
+      ['nextAction', '다음에 확인할 것', '예: 낮/밤 재방문, 다른 타입 보기, 관리비 확인, 실거래 추적'],
     ],
   },
   {
@@ -158,18 +169,6 @@ const visitSectionGroups = [
       ['royal', '로얄동 · 로얄층', '예: 선호 동/층, 비선호 라인, 가격 차이가 나는 이유'],
       ['redevelopment', '재건축 · 재개발 진행상황', '예: 추진위/조합 단계, 안전진단, 주변 개발 호재의 실제 온도'],
       ['localMood', '요즘 거래 분위기', '예: 최근 문의량, 매수자/매도자 우위, 급매 소진 여부'],
-      ['food', '근처 맛집 / 쉬어갈 곳', '예: 다시 임장 갈 때 들를 식당, 카페, 쉬기 좋은 동선'],
-    ],
-  },
-  {
-    key: 'after',
-    title: '5. 다녀와서',
-    description: '좋았던 점, 아쉬운 점, 다음 액션을 바로 남기기',
-    fields: [
-      ['pros', '좋았던 점', '예: 역세권 체감, 단지 조용함, 상권 접근성, 생각보다 좋은 포인트'],
-      ['cons', '아쉬운 점', '예: 주차, 언덕, 소음, 관리상태, 가격 대비 애매했던 점'],
-      ['risk', '금지사항 / 리스크', '예: 돈 내고 임장크루 금지, 매수 전 반드시 재확인할 리스크'],
-      ['nextAction', '다음에 확인할 것', '예: 낮/밤 재방문, 다른 타입 보기, 관리비 확인, 실거래 추적'],
     ],
   },
 ];
@@ -2165,12 +2164,17 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
             <StarRatingInput value={draft.score} onChange={(nextScore) => updateField('score', nextScore)} />
           </label>
           <label>
-            좌표
+            <span className="field-label-with-help">
+              좌표
+              <span className="help-tooltip">
+                <CircleHelp size={14} />
+                <span>네이버 지도에서 장소를 검색한 뒤 공유 링크나 URL의 좌표값을 참고해 입력하면 상세 화면 지도에 표시됩니다.</span>
+              </span>
+            </span>
             <div className="coordinate-row">
               <input value={draft.lat || ''} onChange={(event) => updateField('lat', event.target.value)} placeholder="위도 37.5665" />
               <input value={draft.lng || ''} onChange={(event) => updateField('lng', event.target.value)} placeholder="경도 126.9780" />
             </div>
-            <small className="coordinate-help">네이버 지도에서 장소를 검색한 뒤 공유 링크나 URL의 좌표값을 참고해 입력하면 상세 화면 지도에 표시됩니다.</small>
           </label>
         </div>
 
