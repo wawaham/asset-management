@@ -118,6 +118,67 @@ for delete
 to authenticated
 using (auth.uid() is not null);
 
+create table if not exists public.real_estate_visits (
+  id bigint generated always as identity primary key,
+  apartment_name text not null,
+  address text,
+  visit_date date,
+  purpose text not null default '실거주',
+  score numeric not null default 3,
+  lat numeric,
+  lng numeric,
+  summary text,
+  sections jsonb not null default '{}'::jsonb,
+  author_email text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.real_estate_visits
+  add column if not exists address text,
+  add column if not exists visit_date date,
+  add column if not exists purpose text not null default '실거주',
+  add column if not exists score numeric not null default 3,
+  add column if not exists lat numeric,
+  add column if not exists lng numeric,
+  add column if not exists summary text,
+  add column if not exists sections jsonb not null default '{}'::jsonb,
+  add column if not exists author_email text,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table public.real_estate_visits enable row level security;
+
+drop policy if exists "Allow authenticated read real estate visits" on public.real_estate_visits;
+drop policy if exists "Allow authenticated insert real estate visits" on public.real_estate_visits;
+drop policy if exists "Allow authenticated update real estate visits" on public.real_estate_visits;
+drop policy if exists "Allow authenticated delete real estate visits" on public.real_estate_visits;
+
+create policy "Allow authenticated read real estate visits"
+on public.real_estate_visits
+for select
+to authenticated
+using (auth.uid() is not null);
+
+create policy "Allow authenticated insert real estate visits"
+on public.real_estate_visits
+for insert
+to authenticated
+with check (auth.uid() is not null);
+
+create policy "Allow authenticated update real estate visits"
+on public.real_estate_visits
+for update
+to authenticated
+using (auth.uid() is not null)
+with check (auth.uid() is not null);
+
+create policy "Allow authenticated delete real estate visits"
+on public.real_estate_visits
+for delete
+to authenticated
+using (auth.uid() is not null);
+
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'tip-images',

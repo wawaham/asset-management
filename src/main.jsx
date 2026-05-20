@@ -14,6 +14,7 @@ import {
   ChevronRight,
   CircleHelp,
   CircleDollarSign,
+  ClipboardList,
   Database,
   Edit3,
   Eye,
@@ -27,12 +28,14 @@ import {
   Lock,
   LogOut,
   Mail,
+  MapPin,
   Maximize2,
   Percent,
   Plus,
   ReceiptText,
   Save,
   Sparkles,
+  Star,
   Trash2,
   Users,
   WalletCards,
@@ -69,6 +72,106 @@ const dsrRatio = 0.4;
 const stressRateAdd = 1.5;
 const emptyTipContent = '<p></p>';
 const tipImageBucket = 'tip-images';
+const emptyVisitSections = {
+  before: {
+    region: '',
+    complex: '',
+    price: '',
+    checklist: '',
+  },
+  field: {
+    station: '',
+    atmosphere: '',
+    amenities: '',
+    slope: '',
+  },
+  apartment: {
+    age: '',
+    parking: '',
+    elevator: '',
+    landscaping: '',
+    view: '',
+    noise: '',
+  },
+  realtor: {
+    purpose: '',
+    budget: '',
+    alternatives: '',
+    royal: '',
+    redevelopment: '',
+    localMood: '',
+    food: '',
+  },
+  after: {
+    pros: '',
+    cons: '',
+    risk: '',
+    nextAction: '',
+  },
+};
+
+const visitSectionGroups = [
+  {
+    key: 'before',
+    title: '1. 임장 전',
+    description: '지역, 단지, 가격 흐름을 먼저 잡아두는 구간',
+    fields: [
+      ['region', '지역 선택 / 생활권'],
+      ['complex', '단지 후보 / 주변 아파트'],
+      ['price', '실거래 · 호가 · 전세가'],
+      ['checklist', '미리 확인할 질문'],
+    ],
+  },
+  {
+    key: 'field',
+    title: '2. 현장 확인',
+    description: '역, 정문, 상권, 언덕처럼 직접 걸어봐야 보이는 것',
+    fields: [
+      ['station', '역-정문 거리 / 체감 시간'],
+      ['atmosphere', '거리 분위기 / 보행감'],
+      ['amenities', '상권 · 학원가 · 마트 · 병원'],
+      ['slope', '언덕 / 경사 / 야간 이동'],
+    ],
+  },
+  {
+    key: 'apartment',
+    title: '3. 단지와 세대',
+    description: '단지 안에서 오래 살 때 매일 마주치는 조건',
+    fields: [
+      ['age', '연식 / 관리상태'],
+      ['parking', '주차장 / 이중주차 / 동선'],
+      ['elevator', '엘리베이터 / 필로티'],
+      ['landscaping', '조경 / 커뮤니티 / 동간거리'],
+      ['view', '조망 / 향 / 층별 차이'],
+      ['noise', '소음 / 냄새 / 주변 위험요소'],
+    ],
+  },
+  {
+    key: 'realtor',
+    title: '4. 부동산 방문',
+    description: '중개사에게 들은 정보와 시장 분위기',
+    fields: [
+      ['purpose', '실거주인지 투자용인지'],
+      ['budget', '내 자본금 공개 여부 / 협상 포인트'],
+      ['alternatives', '같이 보는 단지'],
+      ['royal', '로얄동 · 로얄층'],
+      ['redevelopment', '재건축 · 재개발 진행상황'],
+      ['localMood', '요즘 거래 분위기'],
+      ['food', '근처 맛집 / 쉬어갈 곳'],
+    ],
+  },
+  {
+    key: 'after',
+    title: '5. 다녀와서',
+    description: '좋았던 점, 아쉬운 점, 다음 액션을 바로 남기기',
+    fields: [
+      ['pros', '좋았던 점'],
+      ['cons', '아쉬운 점'],
+      ['risk', '금지사항 / 리스크'],
+      ['nextAction', '다음에 확인할 것'],
+    ],
+  },
+];
 const aprilRows = [
   { owner: '인웅', category: '청년도약계좌', amount: 0.077 * hundredMillion },
   { owner: '인웅', category: '주택청약', amount: 0.175 * hundredMillion },
@@ -528,6 +631,7 @@ function App() {
   const pageTitles = {
     assets: '월별 자산 현황',
     ltv: 'LTV 계산기',
+    visits: '임장 후기',
     tips: '부동산 꿀팁',
   };
 
@@ -744,6 +848,10 @@ function App() {
               <Calculator size={16} />
               LTV 계산기
             </button>
+            <button className={page === 'visits' ? 'active' : ''} onClick={() => setPage('visits')}>
+              <ClipboardList size={16} />
+              임장 후기
+            </button>
             <button className={page === 'tips' ? 'active' : ''} onClick={() => setPage('tips')}>
               <FileText size={16} />
               부동산 꿀팁
@@ -900,6 +1008,8 @@ function App() {
         </>
       ) : page === 'ltv' ? (
         <LtvCalculator />
+      ) : page === 'visits' ? (
+        <VisitBoard session={session} />
       ) : (
         <TipsBoard session={session} />
       )}
@@ -1574,6 +1684,432 @@ function CredentialDeleteModal({ title, headline, description, onClose, onConfir
           </button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function createEmptyVisitRecord() {
+  return {
+    apartment_name: '',
+    address: '',
+    visit_date: new Date().toISOString().slice(0, 10),
+    purpose: '실거주',
+    score: 3,
+    lat: '',
+    lng: '',
+    summary: '',
+    sections: JSON.parse(JSON.stringify(emptyVisitSections)),
+  };
+}
+
+function normalizeVisitRecord(record) {
+  return {
+    ...createEmptyVisitRecord(),
+    ...record,
+    sections: {
+      ...JSON.parse(JSON.stringify(emptyVisitSections)),
+      ...(record?.sections || {}),
+    },
+  };
+}
+
+function VisitBoard({ session }) {
+  const [visits, setVisits] = useState([]);
+  const [selectedVisit, setSelectedVisit] = useState(null);
+  const [editorVisit, setEditorVisit] = useState(null);
+  const [deleteVisit, setDeleteVisit] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    loadVisits();
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = setTimeout(() => setToast(null), 2400);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  function showToast(nextMessage, type = 'success') {
+    setToast({ message: nextMessage, type });
+  }
+
+  async function loadVisits() {
+    if (!isSupabaseReady) {
+      setMessage('Supabase 연결 후 임장 기록을 저장할 수 있습니다.');
+      return;
+    }
+
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('real_estate_visits')
+      .select('*')
+      .order('visit_date', { ascending: false })
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      setMessage(`임장 기록을 불러오지 못했습니다. Supabase SQL을 실행했는지 확인해주세요. (${error.message})`);
+    } else {
+      setVisits(data || []);
+      setMessage(data?.length ? '임장 기록을 불러왔습니다.' : '아직 저장된 임장 기록이 없습니다.');
+    }
+    setLoading(false);
+  }
+
+  async function verifyCredential({ email, password }) {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error) return { ok: false, message: '이메일 또는 비밀번호가 맞지 않습니다.' };
+    return { ok: true };
+  }
+
+  async function saveVisit(record) {
+    const normalized = normalizeVisitRecord(record);
+    const payload = {
+      apartment_name: normalized.apartment_name.trim(),
+      address: normalized.address.trim(),
+      visit_date: normalized.visit_date,
+      purpose: normalized.purpose,
+      score: Number(normalized.score) || 0,
+      lat: normalized.lat ? Number(normalized.lat) : null,
+      lng: normalized.lng ? Number(normalized.lng) : null,
+      summary: normalized.summary.trim(),
+      sections: normalized.sections,
+      author_email: session?.user?.email || '',
+      updated_at: new Date().toISOString(),
+    };
+
+    const wasEditing = Boolean(record.id);
+    const query = record.id
+      ? supabase.from('real_estate_visits').update(payload).eq('id', record.id).select().single()
+      : supabase.from('real_estate_visits').insert({ ...payload, created_at: new Date().toISOString() }).select().single();
+
+    const { error } = await query;
+    if (error) return { ok: false, message: `저장 실패: ${error.message}` };
+
+    await loadVisits();
+    setEditorVisit(null);
+    setSelectedVisit(null);
+    showToast(wasEditing ? '임장 기록 수정 완료' : '임장 기록 저장 완료', wasEditing ? 'info' : 'success');
+    return { ok: true };
+  }
+
+  async function removeVisit({ email, password }) {
+    const auth = await verifyCredential({ email, password });
+    if (!auth.ok) return auth;
+
+    const { error } = await supabase.from('real_estate_visits').delete().eq('id', deleteVisit.id);
+    if (error) return { ok: false, message: `삭제 실패: ${error.message}` };
+
+    await loadVisits();
+    if (selectedVisit?.id === deleteVisit.id) setSelectedVisit(null);
+    setDeleteVisit(null);
+    showToast('임장 기록 삭제 완료', 'danger');
+    return { ok: true };
+  }
+
+  if (editorVisit) {
+    return (
+      <VisitEditorPage
+        visit={editorVisit}
+        onClose={() => setEditorVisit(null)}
+        onSubmit={saveVisit}
+      />
+    );
+  }
+
+  return (
+    <section className="visits-page">
+      <div className="visits-hero">
+        <div>
+          <p className="section-kicker">Field Notes</p>
+          <h2>임장 후기 보드</h2>
+          <p>단지 분위기, 역과의 거리, 상권, 부동산에서 들은 이야기까지 같은 기준으로 남겨두는 현장 기록장입니다.</p>
+        </div>
+        <button className="primary-button" onClick={() => setEditorVisit(createEmptyVisitRecord())}>
+          <Plus size={17} />
+          임장 기록 작성
+        </button>
+      </div>
+
+      <section className="visits-list-page">
+        <div className="tips-list-head">
+          <div>
+            <p className="section-kicker">Saved Visits</p>
+            <h3>다녀온 단지</h3>
+            <span className="tips-count">총 {visits.length}개 기록</span>
+          </div>
+          {loading && <Loader2 className="spin" size={18} />}
+        </div>
+
+        <div className="visit-grid">
+          {visits.length === 0 ? (
+            <VisitEmptyState onCreate={() => setEditorVisit(createEmptyVisitRecord())} />
+          ) : visits.map((visit) => (
+            <button key={visit.id} className="visit-card" onClick={() => setSelectedVisit(visit)}>
+              <span className="visit-score"><Star size={15} fill="currentColor" /> {visit.score || 0}/5</span>
+              <strong>{visit.apartment_name}</strong>
+              <em>{visit.address || '주소 미입력'}</em>
+              <p>{visit.summary || stripHtml(Object.values(visit.sections || {}).flatMap((section) => Object.values(section || {})).join(' ')).slice(0, 90) || '기록 요약이 없습니다.'}</p>
+              <small>{visit.visit_date || formatDateTime(visit.updated_at)} · {visit.purpose || '목적 미정'}</small>
+            </button>
+          ))}
+        </div>
+
+        <p className="status-line">
+          <Database size={15} />
+          {message}
+        </p>
+      </section>
+
+      {selectedVisit && (
+        <VisitDetailModal
+          visit={selectedVisit}
+          onClose={() => setSelectedVisit(null)}
+          onEdit={() => setEditorVisit(normalizeVisitRecord(selectedVisit))}
+          onDelete={() => setDeleteVisit(selectedVisit)}
+        />
+      )}
+
+      {deleteVisit && (
+        <CredentialDeleteModal
+          title="임장 기록 삭제"
+          headline={`${deleteVisit.apartment_name} 기록을 삭제합니다.`}
+          description="삭제하려면 등록된 계정의 이메일과 비밀번호를 입력해주세요."
+          onClose={() => setDeleteVisit(null)}
+          onConfirm={removeVisit}
+        />
+      )}
+
+      {toast && (
+        <div className={`app-toast ${toast.type}`} role="status" aria-live="polite">
+          <span>{toast.message}</span>
+          <i aria-hidden="true" />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function VisitEmptyState({ onCreate }) {
+  return (
+    <div className="tips-empty-card visit-empty-card">
+      <div className="empty-orbit" aria-hidden="true">
+        <span />
+        <span />
+        <ClipboardList size={42} />
+      </div>
+      <p className="section-kicker">First Visit</p>
+      <h3>첫 임장 기록을 남겨보세요</h3>
+      <p>임장 전 준비부터 다녀온 뒤 판단까지 한 번에 정리할 수 있게 기준을 잡아두었습니다.</p>
+      <button className="empty-create-button" onClick={onCreate}>
+        <Sparkles size={18} />
+        임장 기록 작성
+        <ArrowUpRight size={17} />
+      </button>
+    </div>
+  );
+}
+
+function VisitEditorPage({ visit, onClose, onSubmit }) {
+  const [draft, setDraft] = useState(normalizeVisitRecord(visit));
+  const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  function updateField(key, value) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateSection(sectionKey, fieldKey, value) {
+    setDraft((current) => ({
+      ...current,
+      sections: {
+        ...current.sections,
+        [sectionKey]: {
+          ...current.sections[sectionKey],
+          [fieldKey]: value,
+        },
+      },
+    }));
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!draft.apartment_name.trim()) {
+      setMessage('아파트 또는 단지명을 입력해주세요.');
+      return;
+    }
+
+    setSaving(true);
+    setMessage('');
+    const result = await onSubmit(draft);
+    if (!result.ok) setMessage(result.message);
+    setSaving(false);
+  }
+
+  return (
+    <section className="visit-editor-page">
+      <div className="tip-editor-page-head">
+        <div>
+          <p className="section-kicker">Visit Editor</p>
+          <h2>{draft.id ? '임장 기록 수정' : '임장 기록 작성'}</h2>
+        </div>
+        <button className="secondary-button" onClick={onClose} type="button">
+          <X size={17} />
+          목록으로
+        </button>
+      </div>
+
+      <form className="visit-editor-form" onSubmit={submit}>
+        <div className="visit-basic-grid">
+          <label>
+            단지명
+            <input value={draft.apartment_name} onChange={(event) => updateField('apartment_name', event.target.value)} placeholder="예: 래미안 원베일리" />
+          </label>
+          <label>
+            주소
+            <input value={draft.address} onChange={(event) => updateField('address', event.target.value)} placeholder="예: 서울 서초구 반포동 ..." />
+          </label>
+          <label>
+            방문일
+            <input type="date" value={draft.visit_date} onChange={(event) => updateField('visit_date', event.target.value)} />
+          </label>
+          <label>
+            목적
+            <select value={draft.purpose} onChange={(event) => updateField('purpose', event.target.value)}>
+              <option>실거주</option>
+              <option>투자</option>
+              <option>실거주+투자</option>
+              <option>비교 조사</option>
+            </select>
+          </label>
+          <label>
+            총점
+            <input type="number" min="1" max="5" step="0.5" value={draft.score} onChange={(event) => updateField('score', event.target.value)} />
+          </label>
+          <label>
+            좌표
+            <div className="coordinate-row">
+              <input value={draft.lat || ''} onChange={(event) => updateField('lat', event.target.value)} placeholder="위도" />
+              <input value={draft.lng || ''} onChange={(event) => updateField('lng', event.target.value)} placeholder="경도" />
+            </div>
+          </label>
+        </div>
+
+        <label className="visit-summary-input">
+          한 줄 요약
+          <input value={draft.summary} onChange={(event) => updateField('summary', event.target.value)} placeholder="예: 역 접근성은 좋지만 주차와 언덕이 아쉬움" />
+        </label>
+
+        <div className="visit-section-stack">
+          {visitSectionGroups.map((group) => (
+            <section className="visit-form-section" key={group.key}>
+              <div>
+                <h3>{group.title}</h3>
+                <p>{group.description}</p>
+              </div>
+              <div className="visit-field-grid">
+                {group.fields.map(([fieldKey, label]) => (
+                  <label key={fieldKey}>
+                    {label}
+                    <textarea
+                      value={draft.sections[group.key]?.[fieldKey] || ''}
+                      onChange={(event) => updateSection(group.key, fieldKey, event.target.value)}
+                      placeholder="현장에서 본 것, 들은 것, 다시 확인할 것을 짧게 남겨주세요."
+                    />
+                  </label>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        {message && <p className="auth-message">{message}</p>}
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose}>취소</button>
+          <button className="primary-button" type="submit" disabled={saving}>
+            {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
+            저장
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function VisitDetailModal({ visit, onClose, onEdit, onDelete }) {
+  const normalized = normalizeVisitRecord(visit);
+  const hasCoordinates = Number.isFinite(Number(normalized.lat)) && Number.isFinite(Number(normalized.lng));
+  const mapQuery = encodeURIComponent(normalized.address || normalized.apartment_name);
+  const naverMapUrl = `https://map.naver.com/p/search/${mapQuery}`;
+  const osmUrl = hasCoordinates
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(normalized.lng) - 0.006}%2C${Number(normalized.lat) - 0.004}%2C${Number(normalized.lng) + 0.006}%2C${Number(normalized.lat) + 0.004}&layer=mapnik&marker=${normalized.lat}%2C${normalized.lng}`
+    : '';
+
+  return (
+    <Modal title="" size="tip-detail" onClose={onClose}>
+      <div className="tip-detail-head visit-detail-head">
+        <div>
+          <p className="section-kicker">{normalized.visit_date} · {normalized.purpose}</p>
+          <h2>{normalized.apartment_name}</h2>
+          <span>{normalized.address || '주소 미입력'}</span>
+        </div>
+        <div className="tip-actions">
+          <button className="secondary-button" onClick={onEdit}>
+            <Edit3 size={16} />
+            수정
+          </button>
+          <button className="danger-button" onClick={onDelete}>
+            <Trash2 size={16} />
+            삭제
+          </button>
+        </div>
+      </div>
+
+      <section className="visit-detail-layout">
+        <aside className="visit-map-card">
+          {hasCoordinates ? (
+            <iframe title={`${normalized.apartment_name} 지도`} src={osmUrl} loading="lazy" />
+          ) : (
+            <div className="visit-map-placeholder">
+              <MapPin size={36} />
+              <strong>좌표를 입력하면 지도에 마킹됩니다</strong>
+              <span>위도와 경도를 기록에 추가하면 상세 화면에서 위치를 바로 확인할 수 있어요.</span>
+            </div>
+          )}
+          <a href={naverMapUrl} target="_blank" rel="noreferrer">
+            네이버 지도에서 보기
+            <ArrowUpRight size={15} />
+          </a>
+        </aside>
+
+        <article className="visit-detail-content">
+          <div className="visit-summary-card">
+            <strong><Star size={16} fill="currentColor" /> {normalized.score}/5</strong>
+            <p>{normalized.summary || '한 줄 요약이 없습니다.'}</p>
+          </div>
+          {visitSectionGroups.map((group) => (
+            <section className="visit-detail-section" key={group.key}>
+              <h3>{group.title}</h3>
+              <div>
+                {group.fields.map(([fieldKey, label]) => {
+                  const value = normalized.sections[group.key]?.[fieldKey];
+                  return (
+                    <dl key={fieldKey}>
+                      <dt>{label}</dt>
+                      <dd>{value || '-'}</dd>
+                    </dl>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </article>
+      </section>
     </Modal>
   );
 }
