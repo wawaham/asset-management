@@ -397,6 +397,13 @@ function parseMapCoordinates(rawUrl) {
     const second = Number(match[2]);
     if (!Number.isFinite(first) || !Number.isFinite(second)) continue;
 
+    if (first > 1000000 && second > 1000000) {
+      const earthRadius = 6378137;
+      const lng = (first / earthRadius) * (180 / Math.PI);
+      const lat = (2 * Math.atan(Math.exp(second / earthRadius)) - Math.PI / 2) * (180 / Math.PI);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+    }
+
     if (first > 120 && second < 45) return { lng: first, lat: second };
     if (second > 120 && first < 45) return { lat: first, lng: second };
   }
@@ -1983,8 +1990,7 @@ function StarRatingInput({ value, onChange }) {
               onClick={(event) => onChange(valueFromPointer(event, index))}
               aria-label={`${index + 1}점`}
             >
-              <span className="star-base">★</span>
-              <span className="star-fill" style={{ width: `${fill}%` }}>★</span>
+              <StarGlyph fill={fill} />
             </button>
           );
         })}
@@ -2002,11 +2008,18 @@ function StaticStarRating({ value }) {
         const fill = Math.max(0, Math.min(1, rating - index)) * 100;
         return (
           <span className="static-star" key={index}>
-            <span className="star-base">★</span>
-            <span className="star-fill" style={{ width: `${fill}%` }}>★</span>
+            <StarGlyph fill={fill} />
           </span>
         );
       })}
+    </span>
+  );
+}
+
+function StarGlyph({ fill }) {
+  return (
+    <span className="star-glyph" style={{ '--fill': `${fill}%` }}>
+      ★
     </span>
   );
 }
@@ -2209,6 +2222,11 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
           <label>
             네이버 지도 URL
             <input value={draft.map_url || ''} onChange={(event) => updateMapUrl(event.target.value)} placeholder="네이버 지도에서 장소를 검색한 뒤 주소창 URL 붙여넣기" />
+            <small className={`map-url-help ${draft.lat && draft.lng ? 'ready' : ''}`}>
+              {draft.lat && draft.lng
+                ? 'URL에서 위치를 찾았습니다. 상세보기 지도에 마커로 표시됩니다.'
+                : '긴 map.naver.com URL에 좌표가 포함되어 있으면 자동으로 마커가 표시됩니다.'}
+            </small>
           </label>
           <label>
             방문일
@@ -2221,19 +2239,6 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
           <label>
             총점
             <StarRatingInput value={draft.score} onChange={(nextScore) => updateField('score', nextScore)} />
-          </label>
-          <label>
-            <span className="field-label-with-help">
-              좌표
-              <span className="help-tooltip">
-                <CircleHelp size={14} />
-                <span>네이버 지도에서 장소를 검색한 뒤 공유 링크나 URL의 좌표값을 참고해 입력하면 상세 화면 지도에 표시됩니다.</span>
-              </span>
-            </span>
-            <div className="coordinate-row">
-              <input value={draft.lat || ''} onChange={(event) => updateField('lat', event.target.value)} placeholder="위도 37.5665" />
-              <input value={draft.lng || ''} onChange={(event) => updateField('lng', event.target.value)} placeholder="경도 126.9780" />
-            </div>
           </label>
         </div>
 

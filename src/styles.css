@@ -1104,18 +1104,14 @@ h2 {
   text-shadow: none;
 }
 
-.star-base,
-.star-fill {
+.star-glyph {
   display: block;
-}
-
-.star-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  overflow: hidden;
-  color: #f4b94d;
-  white-space: nowrap;
+  background: linear-gradient(90deg, #f4b94d 0 var(--fill), #d7d9d3 var(--fill) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  filter: none;
+  text-shadow: none;
 }
 
 .star-rating-input strong {
@@ -1275,17 +1271,15 @@ h2 {
   line-height: 1.55;
 }
 
-.coordinate-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+.map-url-help {
+  color: #7a857b;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
-.field-label-with-help {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  width: max-content;
+.map-url-help.ready {
+  color: #236e69;
 }
 
 .visit-section-stack {
