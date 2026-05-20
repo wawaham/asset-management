@@ -2186,6 +2186,7 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
   const [draft, setDraft] = useState(normalizeVisitRecord(visit));
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showCoordinateGuide, setShowCoordinateGuide] = useState(false);
 
   function updateField(key, value) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -2256,35 +2257,36 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
             <input value={draft.address} onChange={(event) => updateField('address', event.target.value)} placeholder="예: 서울 서초구 반포동 ..." />
           </label>
           <label>
-            <span className="visit-field-title">
-              네이버 지도 URL
-              <span className="help-tooltip visit-map-url-tooltip" aria-label="네이버 지도 URL 설명">
-                <CircleHelp size={14} />
-                <span>
-                  긴 map.naver.com URL에 좌표가 포함되어 있으면 자동으로 마커가 표시됩니다. 좌표가 없으면 저장할 때 입력한 주소로 위치를 한 번 더 찾습니다.
-                </span>
-              </span>
-            </span>
+            네이버 지도 URL
             <input value={draft.map_url || ''} onChange={(event) => updateMapUrl(event.target.value)} placeholder="네이버 지도에서 장소를 검색한 뒤 주소창 URL 붙여넣기" />
           </label>
-          <label>
-            위도
-            <input
-              inputMode="decimal"
-              value={draft.lat || ''}
-              onChange={(event) => updateField('lat', event.target.value)}
-              placeholder="예: 37.5665"
-            />
-          </label>
-          <label>
-            경도
-            <input
-              inputMode="decimal"
-              value={draft.lng || ''}
-              onChange={(event) => updateField('lng', event.target.value)}
-              placeholder="예: 126.9780"
-            />
-          </label>
+          <div className="coordinate-fields">
+            <div className="coordinate-fields-head">
+              <span>좌표</span>
+              <button type="button" onClick={() => setShowCoordinateGuide(true)}>
+                <CircleHelp size={14} />
+                위도경도 찾는 방법
+              </button>
+            </div>
+            <label>
+              위도
+              <input
+                inputMode="decimal"
+                value={draft.lat || ''}
+                onChange={(event) => updateField('lat', event.target.value)}
+                placeholder="예: 37.573500"
+              />
+            </label>
+            <label>
+              경도
+              <input
+                inputMode="decimal"
+                value={draft.lng || ''}
+                onChange={(event) => updateField('lng', event.target.value)}
+                placeholder="예: 126.944613"
+              />
+            </label>
+          </div>
           <label>
             방문일
             <VisitDatePicker value={draft.visit_date} onChange={(nextDate) => updateField('visit_date', nextDate)} />
@@ -2336,7 +2338,79 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
           </button>
         </div>
       </form>
+      {showCoordinateGuide && <CoordinateGuideModal onClose={() => setShowCoordinateGuide(false)} />}
     </section>
+  );
+}
+
+function CoordinateGuideModal({ onClose }) {
+  return (
+    <Modal title="위도경도 찾는 방법" size="coordinate-guide" onClose={onClose}>
+      <div className="coordinate-guide">
+        <div className="coordinate-guide-intro">
+          <MapPin size={24} />
+          <div>
+            <strong>Google Maps에서 복사한 좌표를 그대로 붙여넣으면 됩니다.</strong>
+            <p>복사한 값이 <code>37.573500, 126.944613</code> 형태라면 첫 번째 숫자는 위도, 두 번째 숫자는 경도입니다.</p>
+          </div>
+        </div>
+
+        <div className="coordinate-guide-steps">
+          <article>
+            <span>1</span>
+            <strong>원하는 지점 검색</strong>
+            <p>Google Maps에서 아파트나 단지를 검색한 뒤, 지도에서 정확히 찍고 싶은 지점을 우클릭합니다.</p>
+          </article>
+          <article>
+            <span>2</span>
+            <strong>이 위치 공유 클릭</strong>
+            <p>우클릭 메뉴에서 <code>이 위치 공유</code>를 누르면 공유 팝업이 열립니다.</p>
+          </article>
+          <article>
+            <span>3</span>
+            <strong>좌표 복사 후 입력</strong>
+            <p>공유 팝업의 <code>37.573500, 126.944613</code> 같은 값을 복사해서 위도/경도 칸에 나눠 넣습니다.</p>
+          </article>
+        </div>
+
+        <div className="coordinate-guide-preview">
+          <div className="coordinate-map-mock">
+            <div className="coordinate-menu-mock">
+              <b>이 위치 공유</b>
+              <span>여기를 출발지로 설정</span>
+              <span>여기를 목적지로 설정</span>
+              <span>주변검색</span>
+              <span>거리 측정</span>
+            </div>
+          </div>
+          <div className="coordinate-share-mock">
+            <div className="coordinate-share-head">
+              <strong>공유</strong>
+              <X size={17} />
+            </div>
+            <div className="coordinate-value-demo">
+              <MapPin size={32} />
+              <div>
+                <strong><mark>37.573500</mark>, <mark>126.944613</mark></strong>
+                <span>첫 번째 숫자 = 위도, 두 번째 숫자 = 경도</span>
+              </div>
+            </div>
+            <div className="coordinate-copy-demo">https://maps.app.goo.gl/...</div>
+          </div>
+        </div>
+
+        <div className="coordinate-guide-example">
+          <div>
+            <span>위도</span>
+            <strong>37.573500</strong>
+          </div>
+          <div>
+            <span>경도</span>
+            <strong>126.944613</strong>
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
