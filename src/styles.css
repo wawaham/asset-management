@@ -1270,6 +1270,7 @@ h2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px 10px;
+  align-self: end;
 }
 
 .coordinate-fields-head {
@@ -1278,6 +1279,7 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  height: 17px;
 }
 
 .coordinate-fields-head > span {
@@ -1733,6 +1735,35 @@ h2 {
   text-align: center;
   overflow: hidden;
   position: relative;
+}
+
+.board-loading-card {
+  grid-column: 1 / -1;
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 34px;
+  border: 1px solid rgba(24, 32, 27, 0.08);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(35, 110, 105, 0.08), rgba(255, 191, 71, 0.08)),
+    #fbfcf8;
+  color: #143f3d;
+  text-align: center;
+}
+
+.board-loading-card strong {
+  color: #18201b;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.board-loading-card span {
+  color: #657166;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .tips-empty-card::before {

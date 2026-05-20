@@ -1272,6 +1272,7 @@ function TipsBoard({ session }) {
   const [deletePost, setDeletePost] = useState(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [message, setMessage] = useState('');
   const [toast, setToast] = useState(null);
   const postsPerPage = 8;
@@ -1299,6 +1300,7 @@ function TipsBoard({ session }) {
   async function loadPosts() {
     if (!isSupabaseReady) {
       setMessage('Supabase 연결 후 게시글을 저장할 수 있습니다.');
+      setLoaded(true);
       return;
     }
 
@@ -1457,7 +1459,9 @@ function TipsBoard({ session }) {
             {loading && <Loader2 className="spin" size={18} />}
           </div>
           <div className="tips-list">
-            {posts.length === 0 ? (
+            {!loaded ? (
+              <BoardLoadingState label="부동산 꿀팁을 불러오는 중입니다" />
+            ) : posts.length === 0 ? (
               <TipsEmptyState onCreate={openNewPost} />
             ) : visiblePosts.map((post) => (
               <article
@@ -1564,6 +1568,16 @@ function TipsEmptyState({ onCreate }) {
         첫 글 작성
         <ArrowUpRight size={17} />
       </button>
+    </div>
+  );
+}
+
+function BoardLoadingState({ label }) {
+  return (
+    <div className="board-loading-card">
+      <Loader2 className="spin" size={24} />
+      <strong>{label}</strong>
+      <span>저장된 내용을 확인하는 중입니다.</span>
     </div>
   );
 }
@@ -1735,6 +1749,7 @@ function CredentialDeleteModal({ title, headline, description, onClose, onConfir
     setMessage('');
     const result = await onConfirm({ email, password });
     if (!result.ok) setMessage(result.message);
+    setLoaded(true);
     setLoading(false);
   }
 
@@ -1801,6 +1816,7 @@ function VisitBoard({ session }) {
   const [editorVisit, setEditorVisit] = useState(null);
   const [deleteVisit, setDeleteVisit] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [message, setMessage] = useState('');
   const [toast, setToast] = useState(null);
 
@@ -1821,6 +1837,7 @@ function VisitBoard({ session }) {
   async function loadVisits() {
     if (!isSupabaseReady) {
       setMessage('Supabase 연결 후 임장 노트를 저장할 수 있습니다.');
+      setLoaded(true);
       return;
     }
 
@@ -1837,6 +1854,7 @@ function VisitBoard({ session }) {
       setVisits(data || []);
       setMessage(data?.length ? '임장 노트를 불러왔습니다.' : '아직 저장된 임장 노트가 없습니다.');
     }
+    setLoaded(true);
     setLoading(false);
   }
 
@@ -1931,7 +1949,9 @@ function VisitBoard({ session }) {
         </div>
 
         <div className="visit-grid">
-          {visits.length === 0 ? (
+          {!loaded ? (
+            <BoardLoadingState label="임장 노트를 불러오는 중입니다" />
+          ) : visits.length === 0 ? (
             <VisitEmptyState onCreate={() => setEditorVisit(createEmptyVisitRecord())} />
           ) : visits.map((visit) => (
             <button key={visit.id} className="visit-card" onClick={() => setSelectedVisit(visit)}>
