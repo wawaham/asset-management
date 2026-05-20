@@ -132,6 +132,7 @@ create table if not exists public.real_estate_visits (
   visit_date date,
   purpose text not null default '실거주',
   score numeric not null default 3,
+  map_url text,
   lat numeric,
   lng numeric,
   summary text,

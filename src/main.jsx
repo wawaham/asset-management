@@ -71,12 +71,13 @@ const dsrRatio = 0.4;
 const stressRateAdd = 1.5;
 const emptyTipContent = '<p></p>';
 const tipImageBucket = 'tip-images';
+const savedEmailKey = 'asset-wallet-saved-email';
 const defaultVisitQuestions = [
-  '주차 대수 / 이중주차 여부',
-  '누수 이력 / 수리 이력',
-  '관리비와 장기수선충당금',
-  '로얄동 / 로얄층 / 비선호 라인',
-  '급매 여부와 네고 가능 금액',
+  '주차 체감:',
+  '관리비 / 장기수선충당금 확인 경로:',
+  '로얄동 / 로얄층 / 비선호 라인:',
+  '동별 분위기 차이:',
+  '주변 단지와 비교할 점:',
 ].join('\n');
 
 const emptyVisitSections = {
@@ -164,11 +165,11 @@ const visitSectionGroups = [
     description: '중개사에게 들은 정보와 시장 분위기',
     fields: [
       ['purpose', '실거주인지 투자용인지', '예: 우리는 실거주 중심이라고 말했을 때 추천 매물이 어떻게 바뀌었는지'],
-      ['budget', '내 자본금 공개 여부 / 협상 포인트', '예: 예산 공개 전후 반응, 네고 가능 금액, 잔금 일정'],
+      ['budget', '예산 공개 여부 / 상담 포인트', '예: 예산을 어디까지 말했는지, 추천 매물이 어떻게 달라졌는지, 잔금 일정'],
       ['alternatives', '같이 보는 단지', '예: 같은 가격대에서 비교 추천받은 단지와 이유'],
       ['royal', '로얄동 · 로얄층', '예: 선호 동/층, 비선호 라인, 가격 차이가 나는 이유'],
       ['redevelopment', '재건축 · 재개발 진행상황', '예: 추진위/조합 단계, 안전진단, 주변 개발 호재의 실제 온도'],
-      ['localMood', '요즘 거래 분위기', '예: 최근 문의량, 매수자/매도자 우위, 급매 소진 여부'],
+      ['localMood', '요즘 거래 분위기', '예: 최근 문의량, 매수자/매도자 분위기, 거래가 잘 되는 타입'],
     ],
   },
 ];
@@ -374,6 +375,33 @@ function safeFileName(name) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .toLowerCase();
+}
+
+function parseMapCoordinates(rawUrl) {
+  const source = String(rawUrl || '').trim();
+  if (!source) return null;
+
+  const decoded = decodeURIComponent(source);
+  const patterns = [
+    /[?&#](?:lat|latitude)=([0-9.]+).*?[?&#](?:lng|lon|longitude)=([0-9.]+)/i,
+    /[?&#](?:lng|lon|longitude)=([0-9.]+).*?[?&#](?:lat|latitude)=([0-9.]+)/i,
+    /[?&#]c=([0-9.]+),([0-9.]+)/i,
+    /!3d([0-9.]+)!4d([0-9.]+)/i,
+    /@([0-9.]+),([0-9.]+)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = decoded.match(pattern);
+    if (!match) continue;
+    const first = Number(match[1]);
+    const second = Number(match[2]);
+    if (!Number.isFinite(first) || !Number.isFinite(second)) continue;
+
+    if (first > 120 && second < 45) return { lng: first, lat: second };
+    if (second > 120 && first < 45) return { lat: first, lng: second };
+  }
+
+  return null;
 }
 
 function formatAxisAmount(value) {
@@ -1080,8 +1108,9 @@ function MonthPicker({ value, snapshots, onChange }) {
 }
 
 function AuthScreen() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => localStorage.getItem(savedEmailKey) || '');
   const [password, setPassword] = useState('');
+  const [rememberEmail, setRememberEmail] = useState(() => Boolean(localStorage.getItem(savedEmailKey)));
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -1098,6 +1127,11 @@ function AuthScreen() {
     if (error) {
       setMessage('로그인에 실패했습니다. 이메일과 비밀번호를 다시 확인해주세요.');
     } else {
+      if (rememberEmail) {
+        localStorage.setItem(savedEmailKey, email.trim());
+      } else {
+        localStorage.removeItem(savedEmailKey);
+      }
       const { data } = await supabase.auth.getSession();
       await writeActivityLogEntry({ session: data.session, action: 'login' });
     }
@@ -1128,6 +1162,11 @@ function AuthScreen() {
             <Lock size={17} />
             <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Supabase Auth 비밀번호" required />
           </span>
+        </label>
+        <label className="auth-option">
+          <input type="checkbox" checked={rememberEmail} onChange={(event) => setRememberEmail(event.target.checked)} />
+          <span>아이디 저장</span>
+          <small>로그인 상태는 브라우저 세션에 자동으로 유지됩니다.</small>
         </label>
         <button className="primary-button auth-submit" type="submit" disabled={loading}>
           {loading ? <Loader2 className="spin" size={17} /> : <Lock size={17} />}
@@ -1695,6 +1734,7 @@ function createEmptyVisitRecord() {
     visit_date: new Date().toISOString().slice(0, 10),
     purpose: '실거주',
     score: 3,
+    map_url: '',
     lat: '',
     lng: '',
     summary: '',
@@ -1775,6 +1815,7 @@ function VisitBoard({ session }) {
       visit_date: normalized.visit_date,
       purpose: normalized.purpose,
       score: Number(normalized.score) || 0,
+      map_url: normalized.map_url || '',
       lat: normalized.lat ? Number(normalized.lat) : null,
       lng: normalized.lng ? Number(normalized.lng) : null,
       summary: normalized.summary.trim(),
@@ -2101,6 +2142,20 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
 
+  function updateMapUrl(value) {
+    const coordinates = parseMapCoordinates(value);
+    setDraft((current) => ({
+      ...current,
+      map_url: value,
+      ...(coordinates
+        ? {
+          lat: String(coordinates.lat),
+          lng: String(coordinates.lng),
+        }
+        : {}),
+    }));
+  }
+
   function updateSection(sectionKey, fieldKey, value) {
     setDraft((current) => ({
       ...current,
@@ -2150,6 +2205,10 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
           <label>
             주소
             <input value={draft.address} onChange={(event) => updateField('address', event.target.value)} placeholder="예: 서울 서초구 반포동 ..." />
+          </label>
+          <label>
+            네이버 지도 URL
+            <input value={draft.map_url || ''} onChange={(event) => updateMapUrl(event.target.value)} placeholder="네이버 지도에서 장소를 검색한 뒤 주소창 URL 붙여넣기" />
           </label>
           <label>
             방문일
@@ -2223,7 +2282,7 @@ function VisitDetailModal({ visit, onClose, onEdit, onDelete }) {
   const normalized = normalizeVisitRecord(visit);
   const hasCoordinates = Number.isFinite(Number(normalized.lat)) && Number.isFinite(Number(normalized.lng));
   const mapQuery = encodeURIComponent(normalized.address || normalized.apartment_name);
-  const naverMapUrl = `https://map.naver.com/p/search/${mapQuery}`;
+  const naverMapUrl = normalized.map_url || `https://map.naver.com/p/search/${mapQuery}`;
   const osmUrl = hasCoordinates
     ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(normalized.lng) - 0.006}%2C${Number(normalized.lat) - 0.004}%2C${Number(normalized.lng) + 0.006}%2C${Number(normalized.lat) + 0.004}&layer=mapnik&marker=${normalized.lat}%2C${normalized.lng}`
     : '';
