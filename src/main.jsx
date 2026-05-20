@@ -2268,6 +2268,24 @@ function VisitEditorPage({ visit, onClose, onSubmit }) {
             <input value={draft.map_url || ''} onChange={(event) => updateMapUrl(event.target.value)} placeholder="네이버 지도에서 장소를 검색한 뒤 주소창 URL 붙여넣기" />
           </label>
           <label>
+            위도
+            <input
+              inputMode="decimal"
+              value={draft.lat || ''}
+              onChange={(event) => updateField('lat', event.target.value)}
+              placeholder="예: 37.5665"
+            />
+          </label>
+          <label>
+            경도
+            <input
+              inputMode="decimal"
+              value={draft.lng || ''}
+              onChange={(event) => updateField('lng', event.target.value)}
+              placeholder="예: 126.9780"
+            />
+          </label>
+          <label>
             방문일
             <VisitDatePicker value={draft.visit_date} onChange={(nextDate) => updateField('visit_date', nextDate)} />
           </label>
