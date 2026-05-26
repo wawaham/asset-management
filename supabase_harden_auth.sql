@@ -129,6 +129,7 @@ create table if not exists public.real_estate_visits (
   lat numeric,
   lng numeric,
   summary text,
+  photos jsonb not null default '[]'::jsonb,
   sections jsonb not null default '{}'::jsonb,
   author_email text,
   created_at timestamptz not null default now(),
@@ -144,6 +145,7 @@ alter table public.real_estate_visits
   add column if not exists lat numeric,
   add column if not exists lng numeric,
   add column if not exists summary text,
+  add column if not exists photos jsonb not null default '[]'::jsonb,
   add column if not exists sections jsonb not null default '{}'::jsonb,
   add column if not exists author_email text,
   add column if not exists created_at timestamptz not null default now(),
@@ -194,10 +196,27 @@ set public = excluded.public,
     file_size_limit = excluded.file_size_limit,
     allowed_mime_types = excluded.allowed_mime_types;
 
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'visit-images',
+  'visit-images',
+  true,
+  10485760,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']::text[]
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
 drop policy if exists "Allow public read tip images" on storage.objects;
 drop policy if exists "Allow authenticated upload tip images" on storage.objects;
 drop policy if exists "Allow authenticated update own tip images" on storage.objects;
 drop policy if exists "Allow authenticated delete own tip images" on storage.objects;
+drop policy if exists "Allow public read visit images" on storage.objects;
+drop policy if exists "Allow authenticated upload visit images" on storage.objects;
+drop policy if exists "Allow authenticated update own visit images" on storage.objects;
+drop policy if exists "Allow authenticated delete own visit images" on storage.objects;
 
 create policy "Allow public read tip images"
 on storage.objects
@@ -233,5 +252,42 @@ for delete
 to authenticated
 using (
   bucket_id = 'tip-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Allow public read visit images"
+on storage.objects
+for select
+to public
+using (bucket_id = 'visit-images');
+
+create policy "Allow authenticated upload visit images"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'visit-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Allow authenticated update own visit images"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'visit-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'visit-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "Allow authenticated delete own visit images"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'visit-images'
   and (storage.foldername(name))[1] = auth.uid()::text
 );
