@@ -628,12 +628,35 @@ function mergeSeedSnapshots(snapshots) {
   return [...withoutSeedMonths, ...seedSnapshots].sort((a, b) => a.month.localeCompare(b.month));
 }
 
+function getCurrentMonthKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function getPreferredAssetMonth(snapshots, currentMonth = getCurrentMonthKey()) {
+  const recordedMonths = snapshots
+    .map((snapshot) => snapshot.month)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+
+  if (recordedMonths.includes(currentMonth)) return currentMonth;
+
+  const latestPreviousMonth = recordedMonths
+    .filter((recordedMonth) => recordedMonth < currentMonth)
+    .at(-1);
+
+  return latestPreviousMonth || currentMonth;
+}
+
 function App() {
   const [page, setPage] = useState('assets');
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(!isSupabaseReady);
-  const [month, setMonth] = useState('2026-05');
-  const [rows, setRows] = useState(rowsWithIds(mayRows));
+  const [month, setMonth] = useState(() => getPreferredAssetMonth(sampleSnapshots));
+  const [rows, setRows] = useState(() => {
+    const preferredMonth = getPreferredAssetMonth(sampleSnapshots);
+    const preferredSnapshot = sampleSnapshots.find((snapshot) => snapshot.month === preferredMonth);
+    return rowsWithIds(preferredSnapshot?.rows || createBlankRows());
+  });
   const [snapshots, setSnapshots] = useState(sampleSnapshots);
   const [newCategory, setNewCategory] = useState('');
   const [status, setStatus] = useState('');
@@ -713,7 +736,12 @@ function App() {
     try {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length) {
-        setSnapshots(mergeSeedSnapshots(parsed));
+        const loadedSnapshots = mergeSeedSnapshots(parsed);
+        const preferredMonth = getPreferredAssetMonth(loadedSnapshots);
+        const preferredSnapshot = loadedSnapshots.find((snapshot) => snapshot.month === preferredMonth);
+        setSnapshots(loadedSnapshots);
+        setMonth(preferredMonth);
+        if (preferredSnapshot) setRows(rowsWithIds(preferredSnapshot.rows));
       }
     } catch {
       localStorage.removeItem(storageKey);
@@ -774,9 +802,12 @@ function App() {
     }
 
     const loaded = mergeSeedSnapshots(data.map((item) => ({ month: item.month, rows: item.rows || [] })));
-    setSnapshots(loaded.length ? loaded : sampleSnapshots);
-    const current = loaded.find((item) => item.month === month);
-    if (current) setRows(rowsWithIds(current.rows));
+    const nextSnapshots = loaded.length ? loaded : sampleSnapshots;
+    const preferredMonth = getPreferredAssetMonth(nextSnapshots);
+    const preferredSnapshot = nextSnapshots.find((item) => item.month === preferredMonth);
+    setSnapshots(nextSnapshots);
+    setMonth(preferredMonth);
+    if (preferredSnapshot) setRows(rowsWithIds(preferredSnapshot.rows));
     setStatus('Supabase 기록을 불러왔습니다.');
     setLoading(false);
   }
@@ -880,6 +911,12 @@ function App() {
     setRows(rowsWithIds(snapshot.rows));
   }
 
+  function openAssetsPage() {
+    const preferredMonth = getPreferredAssetMonth(snapshots);
+    setMonth(preferredMonth);
+    setPage('assets');
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     setStatus('로그아웃되었습니다.');
@@ -911,7 +948,7 @@ function App() {
         </div>
         <div className="top-actions">
           <nav className={`page-tabs ${page}-active`} aria-label="페이지 이동">
-            <button className={page === 'assets' ? 'active' : ''} onClick={() => setPage('assets')}>
+            <button className={page === 'assets' ? 'active' : ''} onClick={openAssetsPage}>
               <WalletCards size={16} />
               자산 현황
             </button>
@@ -1094,6 +1131,10 @@ function MonthPicker({ value, snapshots, onChange }) {
   const pickerRef = useRef(null);
   const availableMonths = new Set(snapshots.map((snapshot) => snapshot.month));
   const monthLabel = value.replace('-', '.');
+
+  useEffect(() => {
+    setYear(Number(value.slice(0, 4)));
+  }, [value]);
 
   useEffect(() => {
     if (!open) return undefined;
