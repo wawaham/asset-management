@@ -647,6 +647,12 @@ function getPreferredAssetMonth(snapshots, currentMonth = getCurrentMonthKey()) 
   return latestPreviousMonth || currentMonth;
 }
 
+function clearStoredSupabaseSession() {
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith('sb-') && key.includes('-auth-token'))
+    .forEach((key) => localStorage.removeItem(key));
+}
+
 function App() {
   const [page, setPage] = useState('assets');
   const [session, setSession] = useState(null);
@@ -672,8 +678,18 @@ function App() {
       return;
     }
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        clearStoredSupabaseSession();
+        setSession(null);
+        setAuthReady(true);
+        return;
+      }
       setSession(data.session);
+      setAuthReady(true);
+    }).catch(() => {
+      clearStoredSupabaseSession();
+      setSession(null);
       setAuthReady(true);
     });
 
@@ -1202,6 +1218,7 @@ function AuthScreen() {
     event.preventDefault();
     setLoading(true);
     setMessage('');
+    clearStoredSupabaseSession();
 
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -1209,7 +1226,7 @@ function AuthScreen() {
     });
 
     if (error) {
-      setMessage('로그인에 실패했습니다. 이메일과 비밀번호를 다시 확인해주세요.');
+      setMessage('로그인에 실패했습니다. 오래된 세션은 정리했으니 이메일과 비밀번호를 다시 확인해주세요.');
     } else {
       if (rememberEmail) {
         localStorage.setItem(savedEmailKey, email.trim());
