@@ -33,6 +33,74 @@ for delete
 to authenticated
 using (auth.uid() is not null);
 
+
+create table if not exists public.asset_snapshot_versions (
+  id bigint generated always as identity primary key,
+  month text not null,
+  operation text not null check (operation in ('baseline', 'insert', 'update', 'delete')),
+  previous_rows jsonb,
+  rows jsonb,
+  previous_total numeric,
+  total numeric,
+  changed_by uuid,
+  changed_at timestamptz not null default now()
+);
+
+alter table public.asset_snapshot_versions enable row level security;
+
+drop policy if exists "Allow authenticated read asset snapshot versions" on public.asset_snapshot_versions;
+
+create policy "Allow authenticated read asset snapshot versions"
+on public.asset_snapshot_versions
+for select
+to authenticated
+using (auth.uid() is not null);
+
+grant select on public.asset_snapshot_versions to authenticated;
+
+create or replace function public.log_asset_snapshot_version()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.asset_snapshot_versions (month, operation, rows, total, changed_by)
+    values (new.month, 'insert', new.rows, new.total, auth.uid());
+    return new;
+  elsif tg_op = 'UPDATE' then
+    insert into public.asset_snapshot_versions (
+      month, operation, previous_rows, rows, previous_total, total, changed_by
+    ) values (
+      new.month, 'update', old.rows, new.rows, old.total, new.total, auth.uid()
+    );
+    return new;
+  elsif tg_op = 'DELETE' then
+    insert into public.asset_snapshot_versions (month, operation, previous_rows, previous_total, changed_by)
+    values (old.month, 'delete', old.rows, old.total, auth.uid());
+    return old;
+  end if;
+
+  return null;
+end;
+$$;
+
+drop trigger if exists asset_snapshots_version_trigger on public.asset_snapshots;
+
+create trigger asset_snapshots_version_trigger
+after insert or update or delete on public.asset_snapshots
+for each row execute function public.log_asset_snapshot_version();
+
+insert into public.asset_snapshot_versions (month, operation, rows, total, changed_at)
+select snapshot.month, 'baseline', snapshot.rows, snapshot.total, snapshot.updated_at
+from public.asset_snapshots as snapshot
+where not exists (
+  select 1
+  from public.asset_snapshot_versions as version
+  where version.month = snapshot.month
+    and version.operation = 'baseline'
+);
 create table if not exists public.asset_activity_logs (
   id bigint generated always as identity primary key,
   action text not null check (action in ('login', 'save', 'delete')),

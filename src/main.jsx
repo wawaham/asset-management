@@ -280,6 +280,16 @@ function getDelta(current, previous) {
   };
 }
 
+function findPreviousAssetAmount(row, previousRows) {
+  const category = String(row.category || '').trim().toLocaleLowerCase('ko-KR');
+  const previousRow = previousRows.find((candidate) => (
+    normalizeOwner(candidate.owner) === normalizeOwner(row.owner)
+    && String(candidate.category || '').trim().toLocaleLowerCase('ko-KR') === category
+  ));
+
+  return previousRow ? normalizeAmount(previousRow.amount) : null;
+}
+
 function parseWonInput(value) {
   return normalizeAmount(value);
 }
@@ -1038,12 +1048,21 @@ function App() {
             </button>
           </div>
 
+          <div className="asset-comparison-note">
+            <LineChart size={16} />
+            {previousSnapshot
+              ? <span><strong>{previousSnapshot.month}</strong> 대비 항목별 변화를 금액 아래에 표시합니다.</span>
+              : <span>이전 기록이 생기면 항목별 증감액이 여기에 표시됩니다.</span>}
+          </div>
+
           <div className="partner-columns">
             {partners.map((owner) => (
               <AssetColumn
                 key={owner}
                 owner={owner}
                 rows={rows.filter((row) => normalizeOwner(row.owner) === owner)}
+                previousRows={previousSnapshot?.rows || []}
+                comparisonMonth={previousSnapshot?.month || null}
                 onUpdate={updateRow}
                 onRemove={removeRow}
                 onAdd={() => addManualRow(owner)}
@@ -3244,7 +3263,26 @@ function DeleteSnapshotModal({ month, onClose, onConfirm }) {
   );
 }
 
-function AssetColumn({ owner, rows, onUpdate, onRemove, onAdd }) {
+function AssetDelta({ currentAmount, previousAmount, comparisonMonth }) {
+  if (!comparisonMonth) return <span className="asset-delta flat">비교 기록 없음</span>;
+  if (previousAmount === null) return <span className="asset-delta new">신규 항목</span>;
+
+  const difference = currentAmount - previousAmount;
+  if (difference === 0) return <span className="asset-delta flat">변동 없음</span>;
+
+  const isUp = difference > 0;
+  return (
+    <span
+      className={`asset-delta ${isUp ? 'up' : 'down'}`}
+      title={`${comparisonMonth} 대비 ${formatSignedWon(difference)}`}
+    >
+      {isUp ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+      {formatSignedWon(difference)}
+    </span>
+  );
+}
+
+function AssetColumn({ owner, rows, previousRows, comparisonMonth, onUpdate, onRemove, onAdd }) {
   const ownerTotal = rows.reduce((sum, row) => sum + normalizeAmount(row.amount), 0);
 
   return (
@@ -3260,23 +3298,35 @@ function AssetColumn({ owner, rows, onUpdate, onRemove, onAdd }) {
       </div>
 
       <div className="asset-rows">
-        {rows.map((row) => (
-          <div className="asset-row" key={row.id}>
-            <input className="category-input" value={row.category} onChange={(event) => onUpdate(row.id, 'category', event.target.value)} aria-label="항목명" />
-            <input
-              className="amount-input"
-              inputMode="numeric"
-              value={formatAmountInput(row.amount)}
-              onChange={(event) => onUpdate(row.id, 'amount', event.target.value)}
-              placeholder="0"
-              aria-label="금액"
-            />
-            <input className="memo-input" value={row.memo} onChange={(event) => onUpdate(row.id, 'memo', event.target.value)} placeholder="메모" aria-label="메모" />
-            <button className="delete-button" onClick={() => onRemove(row.id)} title="삭제">
-              <Trash2 size={16} />
-            </button>
-          </div>
-        ))}
+        {rows.map((row) => {
+          const currentAmount = normalizeAmount(row.amount);
+          const previousAmount = findPreviousAssetAmount(row, previousRows);
+
+          return (
+            <div className="asset-row" key={row.id}>
+              <input className="category-input" value={row.category} onChange={(event) => onUpdate(row.id, 'category', event.target.value)} aria-label="항목명" />
+              <div className="amount-field">
+                <input
+                  className="amount-input"
+                  inputMode="numeric"
+                  value={formatAmountInput(row.amount)}
+                  onChange={(event) => onUpdate(row.id, 'amount', event.target.value)}
+                  placeholder="0"
+                  aria-label="금액"
+                />
+                <AssetDelta
+                  currentAmount={currentAmount}
+                  previousAmount={previousAmount}
+                  comparisonMonth={comparisonMonth}
+                />
+              </div>
+              <input className="memo-input" value={row.memo} onChange={(event) => onUpdate(row.id, 'memo', event.target.value)} placeholder="메모" aria-label="메모" />
+              <button className="delete-button" onClick={() => onRemove(row.id)} title="삭제">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
