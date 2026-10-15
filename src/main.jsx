@@ -3355,7 +3355,7 @@ function ItemTrendChart({ snapshots, currentMonth }) {
         <div className="item-trend-control-group">
           <span className="item-trend-control-label">소유자</span>
           <ToggleGroup.Root
-            className="owner-toggle"
+            className={`owner-toggle owner-${owner === '인웅' ? 'inwoong' : 'woonjung'}`}
             type="single"
             value={owner}
             onValueChange={(nextOwner) => nextOwner && setOwner(nextOwner)}
@@ -3368,7 +3368,6 @@ function ItemTrendChart({ snapshots, currentMonth }) {
               value={partner}
               aria-label={`${partner} 자산 보기`}
             >
-              <span className="owner-avatar" aria-hidden="true">{partner.slice(0, 1)}</span>
               <span>{partner}</span>
             </ToggleGroup.Item>
           ))}
