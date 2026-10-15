@@ -4,11 +4,14 @@ import { createPortal } from 'react-dom';
 import { EditorContent, useEditor } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import StarterKit from '@tiptap/starter-kit';
+import * as Select from '@radix-ui/react-select';
+import * as ToggleGroup from '@radix-ui/react-toggle-group';
 import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarDays,
   Calculator,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -3349,25 +3352,53 @@ function ItemTrendChart({ snapshots, currentMonth }) {
       </div>
 
       <div className="item-trend-controls">
-        <div className="owner-segment" aria-label="소유자 선택">
+        <div className="item-trend-control-group">
+          <span className="item-trend-control-label">소유자</span>
+          <ToggleGroup.Root
+            className="owner-toggle"
+            type="single"
+            value={owner}
+            onValueChange={(nextOwner) => nextOwner && setOwner(nextOwner)}
+            aria-label="소유자 선택"
+          >
           {partners.map((partner) => (
-            <button
+            <ToggleGroup.Item
               key={partner}
-              className={owner === partner ? 'active' : ''}
-              onClick={() => setOwner(partner)}
-              type="button"
+              className="owner-toggle-item"
+              value={partner}
+              aria-label={`${partner} 자산 보기`}
             >
-              {partner}
-            </button>
+              <span className="owner-avatar" aria-hidden="true">{partner.slice(0, 1)}</span>
+              <span>{partner}</span>
+            </ToggleGroup.Item>
           ))}
+          </ToggleGroup.Root>
         </div>
-        <label className="item-trend-select">
-          <span className="sr-only">자산 항목</span>
-          <select value={category} onChange={(event) => setCategory(event.target.value)}>
-            {categories.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
-          <ChevronDown size={15} />
-        </label>
+
+        <div className="item-trend-control-group item-control-category">
+          <span className="item-trend-control-label">추적 항목</span>
+          <Select.Root value={category} onValueChange={setCategory}>
+            <Select.Trigger className="asset-select-trigger" aria-label="자산 항목">
+              <Select.Value placeholder="항목을 선택하세요" />
+              <Select.Icon className="asset-select-chevron"><ChevronDown size={16} /></Select.Icon>
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Content className="asset-select-content" position="popper" sideOffset={7} align="end">
+                <Select.Viewport className="asset-select-viewport">
+                  <Select.Group>
+                    <Select.Label className="asset-select-label">{owner}의 자산 항목</Select.Label>
+                    {categories.map((name) => (
+                      <Select.Item className="asset-select-item" key={name} value={name}>
+                        <Select.ItemText>{name}</Select.ItemText>
+                        <Select.ItemIndicator className="asset-select-check"><Check size={15} /></Select.ItemIndicator>
+                      </Select.Item>
+                    ))}
+                  </Select.Group>
+                </Select.Viewport>
+              </Select.Content>
+            </Select.Portal>
+          </Select.Root>
+        </div>
       </div>
 
       {!category || !recordedData.length ? (
