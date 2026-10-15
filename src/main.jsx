@@ -5,7 +5,7 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import Image from '@tiptap/extension-image';
 import StarterKit from '@tiptap/starter-kit';
 import * as Select from '@radix-ui/react-select';
-import * as ToggleGroup from '@radix-ui/react-toggle-group';
+import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -3354,24 +3354,24 @@ function ItemTrendChart({ snapshots, currentMonth }) {
       <div className="item-trend-controls">
         <div className="item-trend-control-group">
           <span className="item-trend-control-label">소유자</span>
-          <ToggleGroup.Root
-            className={`owner-toggle owner-${owner === '인웅' ? 'inwoong' : 'woonjung'}`}
-            type="single"
+          <ToggleButtonGroup
+            className="owner-mui-toggle"
             value={owner}
-            onValueChange={(nextOwner) => nextOwner && setOwner(nextOwner)}
+            exclusive
+            onChange={(_event, nextOwner) => nextOwner && setOwner(nextOwner)}
             aria-label="소유자 선택"
           >
           {partners.map((partner) => (
-            <ToggleGroup.Item
+            <ToggleButton
               key={partner}
-              className="owner-toggle-item"
               value={partner}
               aria-label={`${partner} 자산 보기`}
+              disableRipple
             >
               <span>{partner}</span>
-            </ToggleGroup.Item>
+            </ToggleButton>
           ))}
-          </ToggleGroup.Root>
+          </ToggleButtonGroup>
         </div>
 
         <div className="item-trend-control-group item-control-category">
