@@ -20,6 +20,7 @@ import {
   Eye,
   FileText,
   Heart,
+  History,
   Home,
   ImagePlus,
   Landmark,
@@ -63,6 +64,7 @@ const defaultCategories = [
 
 const storageKey = 'couple-asset-snapshots';
 const deletedMonthsKey = 'couple-asset-deleted-months';
+const assetDraftsKey = 'couple-asset-drafts';
 const hundredMillion = 100000000;
 const tenThousand = 10000;
 const ltvRatio = 0.7;
@@ -606,6 +608,44 @@ function rowsWithIds(rows) {
   }));
 }
 
+function comparableRows(rows) {
+  return normalizeRows(rows || []).map((row) => ({
+    owner: normalizeOwner(row.owner),
+    category: String(row.category || '').trim(),
+    amount: normalizeAmount(row.amount),
+    memo: String(row.memo || '').trim(),
+  }));
+}
+
+function rowsAreEqual(left, right) {
+  return JSON.stringify(comparableRows(left)) === JSON.stringify(comparableRows(right));
+}
+
+function getAssetDrafts() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(assetDraftsKey) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function getAssetDraft(month) {
+  return getAssetDrafts()[month] || null;
+}
+
+function storeAssetDraft(month, rows) {
+  const drafts = getAssetDrafts();
+  drafts[month] = { rows: comparableRows(rows), savedAt: new Date().toISOString() };
+  localStorage.setItem(assetDraftsKey, JSON.stringify(drafts));
+}
+
+function removeAssetDraft(month) {
+  const drafts = getAssetDrafts();
+  delete drafts[month];
+  localStorage.setItem(assetDraftsKey, JSON.stringify(drafts));
+}
+
 function snapshotTotal(snapshot, owner) {
   return normalizeRows(snapshot.rows || []).reduce((sum, row) => {
     if (owner && normalizeOwner(row.owner) !== owner) return sum;
@@ -681,6 +721,8 @@ function App() {
   const [trendModalOpen, setTrendModalOpen] = useState(false);
   const [celebration, setCelebration] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
 
   useEffect(() => {
     if (!isSupabaseReady) {
@@ -713,12 +755,47 @@ function App() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  const selectedSnapshot = useMemo(
+    () => snapshots.find((snapshot) => snapshot.month === month) || null,
+    [month, snapshots]
+  );
+  const hasUnsavedChanges = useMemo(
+    () => !rowsAreEqual(rows, selectedSnapshot?.rows || createBlankRows()),
+    [rows, selectedSnapshot]
+  );
+
   useEffect(() => {
-    const selected = snapshots.find((snapshot) => snapshot.month === month);
-    if (selected) {
-      setRows(rowsWithIds(selected.rows));
+    const savedRows = selectedSnapshot?.rows || createBlankRows();
+    const draft = getAssetDraft(month);
+    const snapshotUpdatedAt = selectedSnapshot?.updated_at ? Date.parse(selectedSnapshot.updated_at) : 0;
+    const draftUpdatedAt = draft?.savedAt ? Date.parse(draft.savedAt) : 0;
+    const canRestoreDraft = draft?.rows
+      && draftUpdatedAt >= snapshotUpdatedAt
+      && !rowsAreEqual(draft.rows, savedRows);
+
+    setRows(rowsWithIds(canRestoreDraft ? draft.rows : savedRows));
+    setDraftRestored(Boolean(canRestoreDraft));
+    if (draft && !canRestoreDraft) removeAssetDraft(month);
+  }, [month, selectedSnapshot]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return undefined;
+
+    const timer = window.setTimeout(() => storeAssetDraft(month, rows), 450);
+    return () => window.clearTimeout(timer);
+  }, [hasUnsavedChanges, month, rows]);
+
+  useEffect(() => {
+    function warnBeforeUnload(event) {
+      if (!hasUnsavedChanges) return;
+      storeAssetDraft(month, rows);
+      event.preventDefault();
+      event.returnValue = '';
     }
-  }, [month, snapshots]);
+
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [hasUnsavedChanges, month, rows]);
 
   const totals = useMemo(() => {
     const byOwner = partners.reduce((acc, owner) => ({ ...acc, [owner]: 0 }), {});
@@ -827,7 +904,11 @@ function App() {
       return;
     }
 
-    const loaded = mergeSeedSnapshots(data.map((item) => ({ month: item.month, rows: item.rows || [] })));
+    const loaded = mergeSeedSnapshots(data.map((item) => ({
+      month: item.month,
+      rows: item.rows || [],
+      updated_at: item.updated_at,
+    })));
     const nextSnapshots = loaded.length ? loaded : sampleSnapshots;
     const preferredMonth = getPreferredAssetMonth(nextSnapshots);
     const preferredSnapshot = nextSnapshots.find((item) => item.month === preferredMonth);
@@ -839,12 +920,7 @@ function App() {
   }
 
   async function saveSnapshot() {
-    const cleanRows = normalizeRows(rows).map(({ owner, category, amount, memo }) => ({
-      owner,
-      category,
-      amount: normalizeAmount(amount),
-      memo,
-    }));
+    const cleanRows = comparableRows(rows);
     const celebrationPayload = {
       month,
       total: totals.combined,
@@ -852,15 +928,21 @@ function App() {
       previousMonth: previousSnapshot?.month,
     };
 
-    setSnapshots((current) => {
+    function commitSnapshotLocally(updatedAt = new Date().toISOString()) {
       setDeletedSnapshotMonths(getDeletedSnapshotMonths().filter((deletedMonth) => deletedMonth !== month));
-      const next = current.filter((snapshot) => snapshot.month !== month);
-      const sorted = [...next, { month, rows: cleanRows }].sort((a, b) => a.month.localeCompare(b.month));
-      localStorage.setItem(storageKey, JSON.stringify(sorted));
-      return sorted;
-    });
+      setSnapshots((current) => {
+        const next = current.filter((snapshot) => snapshot.month !== month);
+        const sorted = [...next, { month, rows: cleanRows, updated_at: updatedAt }]
+          .sort((a, b) => a.month.localeCompare(b.month));
+        localStorage.setItem(storageKey, JSON.stringify(sorted));
+        return sorted;
+      });
+      removeAssetDraft(month);
+      setDraftRestored(false);
+    }
 
     if (!isSupabaseReady) {
+      commitSnapshotLocally();
       setStatus('Supabase 환경값이 없어서 브라우저에만 임시 저장했습니다.');
       setCelebration(celebrationPayload);
       return;
@@ -882,6 +964,7 @@ function App() {
     if (error) {
       setStatus(`저장 실패: ${error.message}`);
     } else {
+      commitSnapshotLocally();
       await writeActivityLog('save', month, totals.combined);
       setStatus(`${month} 자산 기록을 저장했습니다.`);
       setCelebration(celebrationPayload);
@@ -923,6 +1006,7 @@ function App() {
   }
 
   function removeSnapshotLocally(targetMonth) {
+    removeAssetDraft(targetMonth);
     setDeletedSnapshotMonths([...getDeletedSnapshotMonths(), targetMonth]);
     setSnapshots((current) => {
       const next = current.filter((snapshot) => snapshot.month !== targetMonth);
@@ -933,19 +1017,49 @@ function App() {
   }
 
   function applySnapshot(snapshot) {
-    setMonth(snapshot.month);
-    setRows(rowsWithIds(snapshot.rows));
+    requestNavigation(() => setMonth(snapshot.month));
   }
 
   function openAssetsPage() {
     const preferredMonth = getPreferredAssetMonth(snapshots);
-    setMonth(preferredMonth);
-    setPage('assets');
+    requestNavigation(() => {
+      setMonth(preferredMonth);
+      setPage('assets');
+    });
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    setStatus('로그아웃되었습니다.');
+  function requestNavigation(action) {
+    if (hasUnsavedChanges) {
+      storeAssetDraft(month, rows);
+      setPendingNavigation({ action });
+      return;
+    }
+    action();
+  }
+
+  function navigateToPage(nextPage) {
+    requestNavigation(() => setPage(nextPage));
+  }
+
+  function changeMonth(nextMonth) {
+    if (nextMonth === month) return;
+    requestNavigation(() => setMonth(nextMonth));
+  }
+
+  function discardAndContinue() {
+    const action = pendingNavigation?.action;
+    removeAssetDraft(month);
+    setDraftRestored(false);
+    setRows(rowsWithIds(selectedSnapshot?.rows || createBlankRows()));
+    setPendingNavigation(null);
+    action?.();
+  }
+
+  function signOut() {
+    requestNavigation(async () => {
+      await supabase.auth.signOut();
+      setStatus('로그아웃되었습니다.');
+    });
   }
 
   if (!authReady) {
@@ -978,20 +1092,20 @@ function App() {
               <WalletCards size={16} />
               자산 현황
             </button>
-            <button className={page === 'ltv' ? 'active' : ''} onClick={() => setPage('ltv')}>
+            <button className={page === 'ltv' ? 'active' : ''} onClick={() => navigateToPage('ltv')}>
               <Calculator size={16} />
               LTV 계산기
             </button>
-            <button className={page === 'visits' ? 'active' : ''} onClick={() => setPage('visits')}>
+            <button className={page === 'visits' ? 'active' : ''} onClick={() => navigateToPage('visits')}>
               <ClipboardList size={16} />
               임장 노트
             </button>
-            <button className={page === 'tips' ? 'active' : ''} onClick={() => setPage('tips')}>
+            <button className={page === 'tips' ? 'active' : ''} onClick={() => navigateToPage('tips')}>
               <FileText size={16} />
               부동산 꿀팁
             </button>
           </nav>
-          {page === 'assets' && <MonthPicker value={month} snapshots={snapshots} onChange={setMonth} />}
+          {page === 'assets' && <MonthPicker value={month} snapshots={snapshots} onChange={changeMonth} />}
           {session && (
             <button className="secondary-button" onClick={signOut}>
               <LogOut size={17} />
@@ -1022,6 +1136,11 @@ function App() {
             <div>
               <p className="section-kicker">Asset Input</p>
               <h2>항목별 금액 입력</h2>
+              {hasUnsavedChanges && (
+                <span className="draft-status" role="status">
+                  <i /> {draftRestored ? '복구된 임시본 · 자동 저장 중' : '저장 전 변경사항 · 자동 임시저장'}
+                </span>
+              )}
             </div>
             <div className="panel-actions">
               <button className="danger-button" onClick={() => setDeleteModalOpen(true)} disabled={loading}>
@@ -1092,6 +1211,8 @@ function App() {
 
           <MonthlyTrendChart snapshots={snapshots} />
 
+          <ItemTrendChart snapshots={snapshots} currentMonth={month} />
+
           <div className="bar-list">
             <div className="side-section-head">
               <h3 className="side-section-title">항목별 비중</h3>
@@ -1155,6 +1276,14 @@ function App() {
         <VisitBoard session={session} />
       ) : (
         <TipsBoard session={session} />
+      )}
+
+      {pendingNavigation && (
+        <UnsavedChangesModal
+          month={month}
+          onClose={() => setPendingNavigation(null)}
+          onDiscard={discardAndContinue}
+        />
       )}
     </main>
   );
@@ -3128,6 +3257,161 @@ function MonthlyTrendChart({ snapshots, large = false }) {
   );
 }
 
+function ItemTrendChart({ snapshots, currentMonth }) {
+  const [owner, setOwner] = useState(partners[0]);
+  const [category, setCategory] = useState('');
+  const [hover, setHover] = useState(null);
+  const categories = useMemo(() => {
+    const latestAmounts = new Map();
+    snapshots.forEach((snapshot) => {
+      (snapshot.rows || []).forEach((row) => {
+        if (normalizeOwner(row.owner) === owner && String(row.category || '').trim()) {
+          latestAmounts.set(String(row.category).trim(), normalizeAmount(row.amount));
+        }
+      });
+    });
+    return [...latestAmounts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
+      .map(([name]) => name);
+  }, [owner, snapshots]);
+
+  useEffect(() => {
+    if (!categories.includes(category)) setCategory(categories[0] || '');
+  }, [categories, category]);
+
+  const data = useMemo(() => snapshots
+    .map((snapshot) => {
+      const matchingRows = (snapshot.rows || []).filter((row) => (
+        normalizeOwner(row.owner) === owner
+        && String(row.category || '').trim() === category
+      ));
+      if (!matchingRows.length) return { month: snapshot.month, value: null };
+      return {
+        month: snapshot.month,
+        value: matchingRows.reduce((sum, row) => sum + normalizeAmount(row.amount), 0),
+      };
+    })
+    .sort((a, b) => a.month.localeCompare(b.month)), [category, owner, snapshots]);
+  const recordedData = data.filter((item) => item.value !== null);
+  const values = recordedData.map((item) => item.value);
+  const minimum = values.length ? Math.min(...values) : 0;
+  const maximum = values.length ? Math.max(...values) : 1;
+  const spread = Math.max(maximum - minimum, maximum * 0.04, 1);
+  const yMin = Math.max(0, minimum - spread * 0.2);
+  const yMax = maximum + spread * 0.2;
+  const width = 320;
+  const height = 176;
+  const padding = { top: 18, right: 12, bottom: 30, left: 58 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const xStep = data.length > 1 ? plotWidth / (data.length - 1) : 0;
+  const latest = recordedData.at(-1);
+  const previous = recordedData.at(-2);
+  const latestDelta = latest && previous ? latest.value - previous.value : null;
+
+  function point(item) {
+    const index = data.findIndex((entry) => entry.month === item.month);
+    const ratio = (item.value - yMin) / Math.max(yMax - yMin, 1);
+    return {
+      x: padding.left + index * xStep,
+      y: padding.top + plotHeight - ratio * plotHeight,
+    };
+  }
+
+  const points = recordedData.map((item) => {
+    const { x, y } = point(item);
+    return `${x},${y}`;
+  }).join(' ');
+
+  return (
+    <section className="item-trend-section" aria-label="항목별 자산 추이">
+      <div className="item-trend-head">
+        <div>
+          <p className="section-kicker"><History size={14} /> Item Trend</p>
+          <h3>항목별 추이</h3>
+        </div>
+        {latest && (
+          <div className="item-trend-latest">
+            <strong>{formatWon(latest.value)}</strong>
+            {latestDelta !== null && (
+              <span className={latestDelta > 0 ? 'up' : latestDelta < 0 ? 'down' : 'flat'}>
+                {latestDelta === 0 ? '변동 없음' : formatSignedWon(latestDelta)}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="item-trend-controls">
+        <div className="owner-segment" aria-label="소유자 선택">
+          {partners.map((partner) => (
+            <button
+              key={partner}
+              className={owner === partner ? 'active' : ''}
+              onClick={() => setOwner(partner)}
+              type="button"
+            >
+              {partner}
+            </button>
+          ))}
+        </div>
+        <label className="item-trend-select">
+          <span className="sr-only">자산 항목</span>
+          <select value={category} onChange={(event) => setCategory(event.target.value)}>
+            {categories.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+          <ChevronDown size={15} />
+        </label>
+      </div>
+
+      {!category || !recordedData.length ? (
+        <p className="empty item-trend-empty">저장된 항목이 생기면 월별 흐름을 보여드려요.</p>
+      ) : (
+        <div className="item-trend-chart" onMouseLeave={() => setHover(null)}>
+          <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${owner} ${category} 월별 추이`}>
+            {[0, 0.5, 1].map((ratio) => {
+              const y = padding.top + plotHeight * (1 - ratio);
+              return (
+                <g key={ratio}>
+                  <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} />
+                  <text className="axis-label" x={padding.left - 8} y={y + 4}>
+                    {formatAxisAmount(yMin + (yMax - yMin) * ratio)}
+                  </text>
+                </g>
+              );
+            })}
+            <polyline className="item-trend-line" points={points} />
+            {recordedData.map((item) => {
+              const { x, y } = point(item);
+              return (
+                <circle
+                  key={item.month}
+                  className={`item-trend-dot ${item.month === currentMonth ? 'current' : ''}`}
+                  cx={x}
+                  cy={y}
+                  r={item.month === currentMonth ? 4.5 : 3.5}
+                  onMouseEnter={() => setHover({ ...item, x, y })}
+                />
+              );
+            })}
+            {data.map((item, index) => (
+              <text className="month-label" key={item.month} x={padding.left + index * xStep} y={height - 8}>
+                {item.month.slice(5)}
+              </text>
+            ))}
+          </svg>
+          {hover && (
+            <div className="chart-tooltip" style={{ left: `${(hover.x / width) * 100}%`, top: `${(hover.y / height) * 100}%` }}>
+              <span>{hover.month} · {category}</span>
+              <strong>{formatWon(hover.value)}</strong>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function CategoryBar({ category, amount, maxAmount, total, showPercent = false }) {
   const percent = total ? (amount / total) * 100 : 0;
   return (
@@ -3259,6 +3543,24 @@ function DeleteSnapshotModal({ month, onClose, onConfirm }) {
           </button>
         </div>
       </form>
+    </Modal>
+  );
+}
+
+function UnsavedChangesModal({ month, onClose, onDiscard }) {
+  return (
+    <Modal title="저장하지 않은 변경사항" onClose={onClose}>
+      <div className="unsaved-changes-content">
+        <div className="unsaved-changes-icon"><Save size={24} /></div>
+        <div>
+          <strong>{month}에 아직 저장하지 않은 내용이 있습니다.</strong>
+          <p>작성 내용은 임시 저장되어 있습니다. 지금 이동하면 이번 편집 내용은 버리고 저장된 기록으로 돌아갑니다.</p>
+        </div>
+      </div>
+      <div className="modal-actions">
+        <button className="secondary-button" type="button" onClick={onClose}>계속 편집</button>
+        <button className="danger-button solid" type="button" onClick={onDiscard}>변경 버리고 이동</button>
+      </div>
     </Modal>
   );
 }
