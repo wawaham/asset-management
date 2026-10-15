@@ -779,7 +779,13 @@ function App() {
   }, [month, selectedSnapshot]);
 
   useEffect(() => {
-    if (!hasUnsavedChanges) return undefined;
+    if (!hasUnsavedChanges) {
+      const cleanupTimer = window.setTimeout(() => {
+        removeAssetDraft(month);
+        setDraftRestored(false);
+      }, 100);
+      return () => window.clearTimeout(cleanupTimer);
+    }
 
     const timer = window.setTimeout(() => storeAssetDraft(month, rows), 450);
     return () => window.clearTimeout(timer);
