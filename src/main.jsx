@@ -45,6 +45,7 @@ import {
   X,
 } from 'lucide-react';
 import { supabase, isSupabaseReady } from './supabase';
+import { getAssetMonthContext } from './asset-months';
 import './styles.css';
 
 const partners = ['인웅', '운정'];
@@ -758,17 +759,21 @@ function App() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  const selectedSnapshot = useMemo(
-    () => snapshots.find((snapshot) => snapshot.month === month) || null,
+  const { selectedSnapshot, previousSnapshot } = useMemo(
+    () => getAssetMonthContext(snapshots, month),
     [month, snapshots]
   );
+  const initialMonthRows = useMemo(
+    () => selectedSnapshot?.rows || previousSnapshot?.rows || createBlankRows(),
+    [selectedSnapshot, previousSnapshot]
+  );
   const hasUnsavedChanges = useMemo(
-    () => !rowsAreEqual(rows, selectedSnapshot?.rows || createBlankRows()),
-    [rows, selectedSnapshot]
+    () => !rowsAreEqual(rows, initialMonthRows),
+    [rows, initialMonthRows]
   );
 
   useEffect(() => {
-    const savedRows = selectedSnapshot?.rows || createBlankRows();
+    const savedRows = initialMonthRows;
     const draft = getAssetDraft(month);
     const snapshotUpdatedAt = selectedSnapshot?.updated_at ? Date.parse(selectedSnapshot.updated_at) : 0;
     const draftUpdatedAt = draft?.savedAt ? Date.parse(draft.savedAt) : 0;
@@ -779,7 +784,7 @@ function App() {
     setRows(rowsWithIds(canRestoreDraft ? draft.rows : savedRows));
     setDraftRestored(Boolean(canRestoreDraft));
     if (draft && !canRestoreDraft) removeAssetDraft(month);
-  }, [month, selectedSnapshot]);
+  }, [month, selectedSnapshot, initialMonthRows]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -818,10 +823,6 @@ function App() {
     const combined = Object.values(byOwner).reduce((sum, value) => sum + value, 0);
     return { byOwner, byCategory, combined };
   }, [rows]);
-
-  const previousSnapshot = useMemo(() => {
-    return [...snapshots].reverse().find((snapshot) => snapshot.month < month);
-  }, [month, snapshots]);
 
   const previousTotal = useMemo(() => (previousSnapshot ? snapshotTotal(previousSnapshot) : 0), [previousSnapshot]);
   const monthlyGrowth = totals.combined - previousTotal;
@@ -1059,7 +1060,7 @@ function App() {
     const action = pendingNavigation?.action;
     removeAssetDraft(month);
     setDraftRestored(false);
-    setRows(rowsWithIds(selectedSnapshot?.rows || createBlankRows()));
+    setRows(rowsWithIds(initialMonthRows));
     setPendingNavigation(null);
     action?.();
   }
@@ -1152,7 +1153,7 @@ function App() {
               )}
             </div>
             <div className="panel-actions">
-              <button className="danger-button" onClick={() => setDeleteModalOpen(true)} disabled={loading}>
+              <button className="danger-button" onClick={() => setDeleteModalOpen(true)} disabled={loading || !selectedSnapshot}>
                 <Trash2 size={17} />
                 {Number(month.slice(5))}월 기록 삭제
               </button>
@@ -1178,7 +1179,9 @@ function App() {
 
           <div className="asset-comparison-note">
             <LineChart size={16} />
-            {previousSnapshot
+            {!selectedSnapshot && previousSnapshot
+              ? <span><strong>{previousSnapshot.month}</strong> 금액을 이월했습니다. 수정 후 저장하면 <strong>{month}</strong> 기록으로 등록됩니다.</span>
+              : previousSnapshot
               ? <span><strong>{previousSnapshot.month}</strong> 대비 항목별 변화를 금액 아래에 표시합니다.</span>
               : <span>이전 기록이 생기면 항목별 증감액이 여기에 표시됩니다.</span>}
           </div>
