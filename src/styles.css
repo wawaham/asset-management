@@ -57,6 +57,7 @@ button {
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
@@ -186,6 +187,7 @@ h2 {
 
 .top-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }
@@ -199,32 +201,6 @@ h2 {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.72);
 }
-
-.page-tabs::before {
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 4px;
-  width: calc((100% - 8px) / 4);
-  border-radius: 7px;
-  background: #143f3d;
-  box-shadow: 0 10px 22px rgba(20, 63, 61, 0.16);
-  content: "";
-  transition: transform 220ms ease;
-}
-
-.page-tabs.ltv-active::before {
-  transform: translateX(100%);
-}
-
-.page-tabs.visits-active::before {
-  transform: translateX(200%);
-}
-
-.page-tabs.tips-active::before {
-  transform: translateX(300%);
-}
-
 
 .page-tabs button {
   position: relative;
@@ -240,12 +216,21 @@ h2 {
   background: transparent;
   color: #526055;
   font-weight: 900;
-  transition: color 180ms ease, transform 180ms ease;
+  justify-content: center;
+  transition: color 180ms ease, background-color 180ms ease;
 }
 
+.page-tabs button:not(.active):hover { background: #edf4ef; }
+
 .page-tabs button.active {
+  background: #143f3d;
   color: #ffffff;
-  transform: translateY(-1px);
+}
+
+@media (max-width: 760px) {
+  .page-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .page-tabs button { min-width: 0; padding: 4px; font-size: 12px; }
+  .page-tabs button svg { flex: none; }
 }
 
 .month-control input {

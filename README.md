@@ -37,6 +37,12 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 현재 SQL은 빠르게 혼자 쓰기 위한 anon 접근 정책입니다. 실제 배포나 민감한 자산 데이터 저장 전에는 Supabase Auth를 붙이고 사용자별 Row Level Security로 잠그는 구성이 좋습니다.
 
+## 내 집 예산 · 축의 명단 저장
+
+새 탭은 별도 설정 없이 현재 브라우저에 자동 저장합니다. 다른 기기에서도 같은 로그인 계정의 기록을 사용하려면 Supabase SQL Editor에 `supabase/migrations/20261105000000_create_planning_documents.sql`의 SQL만 붙여넣고 실행합니다. 이후 페이지를 다시 열어 **계정에 저장**을 누르면 됩니다. 인웅·운정 명단은 같은 로그인 안에서 분리되고, 다른 로그인 계정은 해당 계정의 기록만 볼 수 있습니다.
+
+내 집 예산은 최신 저장 자산, 제외할 자산, 사용 예정 대출, 수동 입력한 비용과 비상금을 반영합니다. 명단의 예상 축의금은 예산에 합산하지 않습니다.
+
 ## GitHub Pages 배포
 
 `.github/workflows/deploy.yml`이 포함되어 있습니다. GitHub 레포에 `main` 브랜치로 푸시하면 자동으로 빌드하고 GitHub Pages에 배포합니다.

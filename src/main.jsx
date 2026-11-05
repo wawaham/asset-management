@@ -25,6 +25,7 @@ import {
   Heart,
   History,
   Home,
+  House,
   ImagePlus,
   Landmark,
   LineChart,
@@ -46,6 +47,7 @@ import {
 } from 'lucide-react';
 import { supabase, isSupabaseReady } from './supabase';
 import { getAssetMonthContext } from './asset-months';
+import { HomeBudgetPage, WeddingGuestsPage } from './planning-pages';
 import './styles.css';
 
 const partners = ['인웅', '운정'];
@@ -718,6 +720,7 @@ function App() {
     return rowsWithIds(preferredSnapshot?.rows || createBlankRows());
   });
   const [snapshots, setSnapshots] = useState(sampleSnapshots);
+  const [assetSourceReady, setAssetSourceReady] = useState(!isSupabaseReady);
   const [newCategory, setNewCategory] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
@@ -835,11 +838,14 @@ function App() {
     .sort(([, a], [, b]) => b - a)
     .filter(([, amount]) => amount > 0);
   const maxCategory = Math.max(...categoryEntries.map(([, amount]) => amount), 1);
+  const budgetSnapshot = assetSourceReady ? snapshots.find((snapshot) => snapshot.month === getPreferredAssetMonth(snapshots)) : null;
   const pageTitles = {
     assets: '월별 자산 현황',
     ltv: 'LTV 계산기',
     visits: '임장 노트',
     tips: '부동산 꿀팁',
+    budget: '내 집 예산',
+    guests: '축의 명단',
   };
 
   function loadLocalSnapshots() {
@@ -923,6 +929,7 @@ function App() {
     const preferredMonth = getPreferredAssetMonth(nextSnapshots);
     const preferredSnapshot = nextSnapshots.find((item) => item.month === preferredMonth);
     setSnapshots(nextSnapshots);
+    setAssetSourceReady(true);
     setMonth(preferredMonth);
     if (preferredSnapshot) setRows(rowsWithIds(preferredSnapshot.rows));
     setStatus('Supabase 기록을 불러왔습니다.');
@@ -1068,6 +1075,7 @@ function App() {
   function signOut() {
     requestNavigation(async () => {
       await supabase.auth.signOut();
+      setAssetSourceReady(false);
       setStatus('로그아웃되었습니다.');
     });
   }
@@ -1097,8 +1105,8 @@ function App() {
           <h1>{pageTitles[page]}</h1>
         </div>
         <div className="top-actions">
-          <nav className={`page-tabs ${page}-active`} aria-label="페이지 이동">
-            <button className={page === 'assets' ? 'active' : ''} onClick={openAssetsPage}>
+          <nav className="page-tabs" aria-label="페이지 이동">
+            <button className={page === 'assets' ? 'active' : ''} aria-current={page === 'assets' ? 'page' : undefined} onClick={openAssetsPage}>
               <WalletCards size={16} />
               자산 현황
             </button>
@@ -1113,6 +1121,12 @@ function App() {
             <button className={page === 'tips' ? 'active' : ''} onClick={() => navigateToPage('tips')}>
               <FileText size={16} />
               부동산 꿀팁
+            </button>
+            <button className={page === 'budget' ? 'active' : ''} aria-current={page === 'budget' ? 'page' : undefined} onClick={() => navigateToPage('budget')}>
+              <House size={16} /> 내 집 예산
+            </button>
+            <button className={page === 'guests' ? 'active' : ''} aria-current={page === 'guests' ? 'page' : undefined} onClick={() => navigateToPage('guests')}>
+              <Heart size={16} /> 축의 명단
             </button>
           </nav>
           {page === 'assets' && <MonthPicker value={month} snapshots={snapshots} onChange={changeMonth} />}
@@ -1286,6 +1300,10 @@ function App() {
         <LtvCalculator />
       ) : page === 'visits' ? (
         <VisitBoard session={session} />
+      ) : page === 'budget' ? (
+        <HomeBudgetPage key={session?.user.id} userId={session?.user.id} assetTotal={budgetSnapshot ? snapshotTotal(budgetSnapshot) : null} assetMonth={budgetSnapshot?.month} assetLoading={!assetSourceReady && loading} />
+      ) : page === 'guests' ? (
+        <WeddingGuestsPage key={session?.user.id} userId={session?.user.id} owners={partners} />
       ) : (
         <TipsBoard session={session} />
       )}
