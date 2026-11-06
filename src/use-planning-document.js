@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 
-export function usePlanningDocument(kind, userId, initialData) {
+export function usePlanningDocument(kind, userId, initialData, { readOnly = false } = {}) {
   const storageKey = `asset-planning:${userId || 'local'}:${kind}`;
   const [record, setRecord] = useState(() => {
     try {
@@ -40,13 +40,14 @@ export function usePlanningDocument(kind, userId, initialData) {
   }, [kind, userId]);
 
   useEffect(() => {
+    if (readOnly) return;
     try {
       localStorage.setItem(storageKey, JSON.stringify(record));
       setLocalError(false);
     } catch {
       setLocalError(true);
     }
-  }, [record, storageKey]);
+  }, [record, storageKey, readOnly]);
 
   function update(updater) {
     setMessage('');

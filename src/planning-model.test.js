@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateHomeBudget, parseManwon } from './planning-model.js';
+import { calculateHomeBudget, parseManwon, sortWeddingGuests, summarizeGuestGifts } from './planning-model.js';
 
 test('subtracts every expense group and reserve before adding the planned mortgage', () => {
   const budget = calculateHomeBudget(400_000_000, {
@@ -31,4 +31,40 @@ test('fractional ten-thousand won input is converted to whole won', () => {
   assert.equal(parseManwon(''), 0);
   assert.equal(parseManwon('-100'), 0);
   assert.equal(parseManwon('Infinity'), 0);
+});
+
+test('guest sorting handles Korean names, relations, blank relations and numeric amounts', () => {
+  const guests = [
+    { name: '홍길동', relation: '친구', expected: '5', received: '15' },
+    { name: '박지수', relation: '', expected: '50', received: '' },
+    { name: '김민수', relation: '가족', expected: '10', received: '5' },
+    { name: '이수진', relation: '친구', expected: '10', received: '20' },
+  ];
+  const names = (order) => sortWeddingGuests(guests, order).map(({ name }) => name);
+  assert.deepEqual(names('name'), ['김민수', '박지수', '이수진', '홍길동']);
+  assert.deepEqual(names('relation'), ['김민수', '이수진', '홍길동', '박지수']);
+  assert.deepEqual(names('expected'), ['박지수', '김민수', '이수진', '홍길동']);
+  assert.deepEqual(names('received'), ['이수진', '홍길동', '김민수', '박지수']);
+  assert.deepEqual(names('registered'), ['홍길동', '박지수', '김민수', '이수진']);
+});
+
+test('budget uses received amounts in place of estimates, including explicit zero', () => {
+  const gifts = summarizeGuestGifts([
+    { owner: '인웅', expected: '30', received: '20' },
+    { owner: '운정', expected: '50', received: '' },
+    { owner: '운정', expected: '10', received: '0' },
+  ]);
+  assert.deepEqual(gifts, { received: 200_000, expected: 500_000 });
+  const budget = calculateHomeBudget(10_000_000, { venue: '100', extraGifts: '30', giftsInAssets: '20', target: '1000' }, gifts);
+  assert.equal(budget.listedGifts, 700_000);
+  assert.equal(budget.giftIncome, 1_000_000);
+  assert.equal(budget.giftContribution, 800_000);
+  assert.equal(budget.maxPrice, 9_800_000);
+  assert.equal(budget.targetBalance, -200_000);
+});
+
+test('already counted gifts can offset only received gifts, not estimates or additions', () => {
+  const budget = calculateHomeBudget(10_000_000, { extraGifts: '20', giftsInAssets: '150' }, { received: 200_000, expected: 500_000 });
+  assert.equal(budget.giftsInAssets, 200_000);
+  assert.equal(budget.giftContribution, 700_000);
 });

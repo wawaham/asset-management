@@ -22,7 +22,34 @@ export function parseManwon(value) {
   return Number.isFinite(number) && number > 0 ? Math.round(Math.min(number, 1e9) * 10000) : 0;
 }
 
-export function calculateHomeBudget(assetTotal, plan) {
+const koreanOrder = new Intl.Collator('ko-KR', { numeric: true, sensitivity: 'base' });
+
+export function sortWeddingGuests(guests, order) {
+  if (order === 'registered') return guests;
+  const compareNames = (a, b) => koreanOrder.compare(a.name, b.name);
+  return [...guests].sort((a, b) => {
+    if (order === 'relation') {
+      const left = a.relation?.trim() || '';
+      const right = b.relation?.trim() || '';
+      return Number(!left) - Number(!right) || koreanOrder.compare(left, right) || compareNames(a, b);
+    }
+    if (order === 'expected' || order === 'received') {
+      return parseManwon(b[order]) - parseManwon(a[order]) || compareNames(a, b);
+    }
+    return compareNames(a, b);
+  });
+}
+
+export function summarizeGuestGifts(guests) {
+  return (Array.isArray(guests) ? guests : []).reduce((totals, guest) => {
+    const received = String(guest.received ?? '').trim();
+    if (/\d/.test(received)) totals.received += parseManwon(received);
+    else totals.expected += parseManwon(guest.expected);
+    return totals;
+  }, { received: 0, expected: 0 });
+}
+
+export function calculateHomeBudget(assetTotal, plan, guestGifts = { received: 0, expected: 0 }) {
   const excluded = parseManwon(plan.excluded);
   const reserve = parseManwon(plan.reserve);
   const loan = parseManwon(plan.loan);
@@ -30,11 +57,16 @@ export function calculateHomeBudget(assetTotal, plan) {
   const groupTotals = budgetGroups.map(({ items }) => items.reduce((sum, [key]) => sum + parseManwon(plan[key]), 0));
   const [purchaseFees, wedding, move] = groupTotals;
   const outlays = purchaseFees + wedding + move + reserve;
-  const cash = Math.max(0, assetTotal - excluded);
+  const extraGifts = parseManwon(plan.extraGifts);
+  const listedGifts = guestGifts.received + guestGifts.expected;
+  const giftIncome = listedGifts + extraGifts;
+  const giftsInAssets = Math.min(guestGifts.received, parseManwon(plan.giftsInAssets));
+  const giftContribution = giftIncome - giftsInAssets;
+  const cash = Math.max(0, assetTotal - excluded) + giftContribution;
   const ownBudget = Math.max(0, cash - outlays);
   const maxPrice = Math.max(0, cash + loan - outlays);
   const outlayGap = Math.max(0, outlays - cash);
   // A mortgage cannot cover more than the purchase price itself.
   const targetBalance = cash + Math.min(loan, target) - outlays - target;
-  return { groupTotals, outlays, cash, ownBudget, maxPrice: outlayGap ? 0 : maxPrice, outlayGap, loan, target, targetBalance, excluded, reserve };
+  return { groupTotals, outlays, cash, ownBudget, maxPrice: outlayGap ? 0 : maxPrice, outlayGap, loan, target, targetBalance, excluded, reserve, listedGifts, giftIncome, giftsInAssets, giftContribution };
 }

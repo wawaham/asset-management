@@ -21,6 +21,11 @@
 .plan-field label { display: block; font-size: 14px; font-weight: 750; overflow-wrap: anywhere; }
 .plan-field small { display: block; margin-top: 3px; color: var(--plan-muted); font-size: 12px; }
 .plan-field a { display: inline-flex; align-items: center; gap: 2px; margin-top: 4px; color: var(--plan-accent); font-size: 12px; text-underline-offset: 2px; }
+.plan-gifts { margin: 4px 0 12px; padding-inline: 12px; border-left: 3px solid #286b59; background: #eef5f0; }
+.plan-gifts h3 { margin: 0; font-size: 14px; }
+.plan-gifts .plan-field:first-child { border-top: 0; }
+.plan-gifts strong { color: var(--plan-accent); text-align: right; font-size: 14px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.plan-gift-total { font-weight: 800; }
 .plan-money-input { display: flex; align-items: center; gap: 5px; min-width: 0; height: 38px; padding: 0 9px; border: 1px solid #cbd8cf; border-radius: 6px; background: #fff; }
 .plan-money-input:focus-within, .guest-search:focus-within { outline: 2px solid #236e69; outline-offset: 1px; }
 .plan-money-input input { width: 100%; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; text-align: right; font-weight: 750; font-variant-numeric: tabular-nums; }
@@ -64,6 +69,7 @@
 .guest-stats dd { margin: 4px 0 0; color: var(--plan-ink); font-size: 21px; font-weight: 850; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .guest-filters { justify-content: flex-start; }
 .guest-filters .MuiTextField-root { min-width: 142px; background: var(--plan-paper); }
+.guest-filters .guest-sort { min-width: 185px; }
 .guest-search { display: flex; align-items: center; gap: 8px; width: min(320px, 100%); height: 40px; padding: 0 10px; border: 1px solid #bfcac2; border-radius: 6px; background: var(--plan-paper); color: var(--plan-muted); }
 .guest-search svg { flex: none; }
 .guest-search input { width: 100%; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--plan-ink); }
@@ -129,6 +135,9 @@
 }
 
 @media (max-width: 580px) {
+  .guest-filters { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 6fr); }
+  .guest-filters .MuiTextField-root { min-width: 0; }
+  .guest-search { grid-column: 1 / -1; width: 100%; }
   .plan-section { padding-inline: 11px; }
   .plan-result-main { padding: 15px; }
   .plan-result-main strong { font-size: 25px; }

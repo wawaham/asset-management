@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MenuItem, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { ArrowUpRight, Check, ChevronDown, ClipboardList, House, Pencil, Plus, Save, Search, Trash2, WalletCards, X } from 'lucide-react';
-import { budgetGroups, calculateHomeBudget, parseManwon } from './planning-model';
+import { budgetGroups, calculateHomeBudget, parseManwon, sortWeddingGuests, summarizeGuestGifts } from './planning-model';
 import { usePlanningDocument } from './use-planning-document';
 import './planning.css';
 
@@ -11,6 +11,11 @@ const statuses = {
   uncontacted: '연락 전', invited: '초대 완료', attending: '참석 예정', declined: '불참',
 };
 const blankGuest = { name: '', relation: '', status: 'uncontacted', expected: '', received: '', memo: '' };
+const emptyGuestList = { guests: [] };
+const guestOrders = {
+  registered: '등록순', name: '이름 가나다순', relation: '관계 가나다순',
+  expected: '예상 축의금 높은 순', received: '받은 축의금 높은 순',
+};
 
 function MoneyInput({ label, value, onChange, id }) {
   return (
@@ -47,9 +52,11 @@ function PlanningStorage({ document }) {
 
 export function HomeBudgetPage({ userId, assetTotal, assetMonth, assetLoading }) {
   const document = usePlanningDocument('home_budget', userId, {});
+  const guestDocument = usePlanningDocument('wedding_guests', userId, emptyGuestList, { readOnly: true });
   const plan = document.data;
   const updateAmount = (key, value) => document.update((current) => ({ ...current, [key]: value }));
-  const budget = calculateHomeBudget(assetTotal ?? 0, plan);
+  const guestGifts = summarizeGuestGifts(guestDocument.data.guests);
+  const budget = calculateHomeBudget(assetTotal ?? 0, plan, guestGifts);
   const unfilled = budgetGroups.flatMap(({ items }) => items).filter(([id]) => !plan[id] || plan[id] === '.').length;
   const sourceAvailable = assetTotal !== null;
   const metrics = [
@@ -85,6 +92,18 @@ export function HomeBudgetPage({ userId, assetTotal, assetMonth, assetLoading })
             <details className="plan-section plan-expenses" key={group.id} open>
               <summary className="plan-section-head"><h2>{group.label}</h2><span>{money(budget.groupTotals[index])} <ChevronDown size={16} /></span></summary>
               {group.items.map(([id, label, note, href]) => field(id, label, note, href))}
+              {group.id === 'wedding' && <div className="plan-gifts">
+                <div className="plan-field">
+                  <div><h3>축의 명단에서 가져온 금액</h3>
+                    <small>인웅·운정 합산 · 받은 {money(guestGifts.received)} + 아직 받지 않은 예상액 {money(guestGifts.expected)}</small>
+                    {guestDocument.mode === 'loading' && <small role="status">계정 명단 확인 중</small>}
+                    {guestDocument.mode === 'offline' && <small role="status">계정 연결 실패 · 이 브라우저의 명단 기준</small>}
+                  </div><strong>{money(budget.listedGifts)}</strong>
+                </div>
+                {field('extraGifts', '추가 예상 축의금', '아직 명단에 없는 금액만 입력')}
+                {guestGifts.received > 0 && field('giftsInAssets', '자산에 이미 포함한 축의금', '명단에 기록한 받은 금액 중 자산 현황에 반영한 금액')}
+                <div className="plan-field plan-gift-total"><h3>예산에 더할 축의금</h3><strong>+{money(budget.giftContribution)}</strong></div>
+              </div>}
             </details>
           ))}
           <PlanningStorage document={document} />
@@ -102,7 +121,12 @@ export function HomeBudgetPage({ userId, assetTotal, assetMonth, assetLoading })
           </section>
           <section className="plan-section plan-breakdown">
             <div className="plan-section-head"><h2>자금 배분</h2>{assetMonth && <span>{assetMonth} 저장 기록</span>}</div>
-            <dl className="plan-source"><div><dt>합산 자산</dt><dd>{sourceAvailable ? money(assetTotal) : '—'}</dd></div><div><dt>사용 제외 자산</dt><dd>{budget.excluded ? `−${money(budget.excluded)}` : money(0)}</dd></div><div><dt>쓸 수 있는 자기자금</dt><dd>{sourceAvailable ? money(budget.cash) : '—'}</dd></div></dl>
+            <dl className="plan-source">
+              <div><dt>합산 자산</dt><dd>{sourceAvailable ? money(assetTotal) : '—'}</dd></div>
+              <div><dt>사용 제외 자산</dt><dd>{budget.excluded ? `−${money(budget.excluded)}` : money(0)}</dd></div>
+              <div><dt>축의금 (중복 제외)</dt><dd>+{money(budget.giftContribution)}</dd></div>
+              <div><dt>쓸 수 있는 자기자금</dt><dd>{sourceAvailable ? money(budget.cash) : '—'}</dd></div>
+            </dl>
             {sourceAvailable && barTotal > 0 && <div className="plan-allocation" aria-hidden="true">
               {metrics.filter(([, value]) => value > 0).map(([label, value, tone]) => <i key={label} data-tone={tone} style={{ flexGrow: value / barTotal }} />)}
             </div>}
@@ -119,7 +143,7 @@ export function HomeBudgetPage({ userId, assetTotal, assetMonth, assetLoading })
               <div data-negative={budget.targetBalance < 0}><dt>{budget.targetBalance < 0 ? '부족한 자금' : '남는 자금'}</dt><dd>{money(Math.abs(budget.targetBalance))}</dd></div>
             </dl>
           </section>}
-          <p className="plan-footnote">입력한 비용과 대출을 기준으로 한 예산입니다. 매매가가 바뀌면 세금·복비도 다시 확인하세요. 예상 축의금은 반영하지 않습니다.</p>
+          <p className="plan-footnote">예상 축의금까지 포함한 예산입니다. 실제로 받을 금액과 매수 비용이 달라지면 예산도 달라집니다.</p>
         </aside>
       </div>
     </section>
@@ -167,17 +191,18 @@ function GuestDialog({ guest, onClose, onSave }) {
 }
 
 export function WeddingGuestsPage({ userId, owners }) {
-  const document = usePlanningDocument('wedding_guests', userId, { guests: [] });
+  const document = usePlanningDocument('wedding_guests', userId, emptyGuestList);
   const [owner, setOwner] = useState(owners[0]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [order, setOrder] = useState('registered');
   const [editing, setEditing] = useState(null);
   const [removed, setRemoved] = useState(null);
   const guests = Array.isArray(document.data.guests) ? document.data.guests : [];
   const owned = guests.filter((guest) => guest.owner === owner);
   const query = search.trim().toLocaleLowerCase();
-  const visible = owned.filter((guest) => (filter === 'all' || guest.status === filter) &&
-    [guest.name, guest.relation, guest.memo].some((value) => String(value || '').toLocaleLowerCase().includes(query)));
+  const visible = sortWeddingGuests(owned.filter((guest) => (filter === 'all' || guest.status === filter) &&
+    [guest.name, guest.relation, guest.memo].some((value) => String(value || '').toLocaleLowerCase().includes(query))), order);
   const updateGuests = (updater) => document.update((current) => ({ ...current, guests: updater(current.guests || []) }));
 
   function saveGuest(guest) {
@@ -209,6 +234,9 @@ export function WeddingGuestsPage({ userId, owners }) {
       <label className="guest-search"><Search size={17} /><input type="search" aria-label="명단 검색" placeholder="이름, 관계, 메모 검색" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
       <TextField select size="small" label="초대 상태" value={filter} onChange={(event) => setFilter(event.target.value)}>
         <MenuItem value="all">전체</MenuItem>{Object.entries(statuses).map(([value, label]) => <MenuItem value={value} key={value}>{label}</MenuItem>)}
+      </TextField>
+      <TextField select size="small" className="guest-sort" label="정렬" value={order} onChange={(event) => setOrder(event.target.value)}>
+        {Object.entries(guestOrders).map(([value, label]) => <MenuItem value={value} key={value}>{label}</MenuItem>)}
       </TextField>
     </div>
     {removed && <div className="guest-undo" role="status"><span>{removed.name} 님을 명단에서 삭제했습니다.</span>
