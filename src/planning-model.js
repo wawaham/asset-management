@@ -54,19 +54,26 @@ export function calculateHomeBudget(assetTotal, plan, guestGifts = { received: 0
   const reserve = parseManwon(plan.reserve);
   const loan = parseManwon(plan.loan);
   const target = parseManwon(plan.target);
+  const retirementInwoong = parseManwon(plan.retirementInwoong);
+  const retirementWoonjung = parseManwon(plan.retirementWoonjung);
+  const extraHomeFunds = parseManwon(plan.extraHomeFunds);
+  const addedHomeFunds = retirementInwoong + retirementWoonjung + extraHomeFunds;
   const groupTotals = budgetGroups.map(({ items }) => items.reduce((sum, [key]) => sum + parseManwon(plan[key]), 0));
   const [purchaseFees, wedding, move] = groupTotals;
-  const outlays = purchaseFees + wedding + move + reserve;
   const extraGifts = parseManwon(plan.extraGifts);
   const listedGifts = guestGifts.received + guestGifts.expected;
   const giftIncome = listedGifts + extraGifts;
   const giftsInAssets = Math.min(guestGifts.received, parseManwon(plan.giftsInAssets));
-  const giftContribution = giftIncome - giftsInAssets;
-  const cash = Math.max(0, assetTotal - excluded) + giftContribution;
+  const weddingGiftCoverage = Math.min(wedding, giftIncome);
+  const weddingOwnCost = wedding - weddingGiftCoverage;
+  const giftReserve = giftIncome - weddingGiftCoverage;
+  // Gifts are ring-fenced for wedding expenses and their own reserve.
+  const cash = Math.max(0, assetTotal - excluded - giftsInAssets) + addedHomeFunds;
+  const outlays = purchaseFees + weddingOwnCost + move + reserve;
   const ownBudget = Math.max(0, cash - outlays);
   const maxPrice = Math.max(0, cash + loan - outlays);
   const outlayGap = Math.max(0, outlays - cash);
   // A mortgage cannot cover more than the purchase price itself.
   const targetBalance = cash + Math.min(loan, target) - outlays - target;
-  return { groupTotals, outlays, cash, ownBudget, maxPrice: outlayGap ? 0 : maxPrice, outlayGap, loan, target, targetBalance, excluded, reserve, listedGifts, giftIncome, giftsInAssets, giftContribution };
+  return { groupTotals, outlays, cash, ownBudget, maxPrice: outlayGap ? 0 : maxPrice, outlayGap, loan, target, targetBalance, excluded, reserve, listedGifts, giftIncome, giftsInAssets, weddingGiftCoverage, weddingOwnCost, giftReserve, retirementInwoong, retirementWoonjung, extraHomeFunds, addedHomeFunds };
 }

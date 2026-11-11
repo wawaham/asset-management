@@ -58,7 +58,8 @@ test('budget uses received amounts in place of estimates, including explicit zer
   const budget = calculateHomeBudget(10_000_000, { venue: '100', extraGifts: '30', giftsInAssets: '20', target: '1000' }, gifts);
   assert.equal(budget.listedGifts, 700_000);
   assert.equal(budget.giftIncome, 1_000_000);
-  assert.equal(budget.giftContribution, 800_000);
+  assert.equal(budget.weddingGiftCoverage, 1_000_000);
+  assert.equal(budget.giftReserve, 0);
   assert.equal(budget.maxPrice, 9_800_000);
   assert.equal(budget.targetBalance, -200_000);
 });
@@ -66,5 +67,54 @@ test('budget uses received amounts in place of estimates, including explicit zer
 test('already counted gifts can offset only received gifts, not estimates or additions', () => {
   const budget = calculateHomeBudget(10_000_000, { extraGifts: '20', giftsInAssets: '150' }, { received: 200_000, expected: 500_000 });
   assert.equal(budget.giftsInAssets, 200_000);
-  assert.equal(budget.giftContribution, 700_000);
+  assert.equal(budget.giftReserve, 900_000);
+  assert.equal(budget.cash, 9_800_000);
+  assert.equal(budget.maxPrice, 9_800_000);
+});
+
+test('gifts cover wedding expenses without adding any surplus to the home budget', () => {
+  const plan = { venue: '2000', honeymoon: '500', reserve: '1000', loan: '30000', target: '60000' };
+  const covered = calculateHomeBudget(400_000_000, plan, { received: 0, expected: 25_000_000 });
+  const surplus = calculateHomeBudget(400_000_000, plan, { received: 0, expected: 35_000_000 });
+  assert.equal(surplus.weddingGiftCoverage, 25_000_000);
+  assert.equal(surplus.weddingOwnCost, 0);
+  assert.equal(surplus.giftReserve, 10_000_000);
+  assert.equal(surplus.cash, 400_000_000);
+  assert.equal(surplus.ownBudget, 390_000_000);
+  assert.equal(surplus.maxPrice, covered.maxPrice);
+  assert.equal(surplus.targetBalance, covered.targetBalance);
+});
+
+test('only uncovered wedding expenses reduce the original assets', () => {
+  const budget = calculateHomeBudget(100_000_000, { venue: '2000', extraGifts: '500' }, { received: 5_000_000, expected: 0 });
+  assert.equal(budget.weddingGiftCoverage, 10_000_000);
+  assert.equal(budget.weddingOwnCost, 10_000_000);
+  assert.equal(budget.giftReserve, 0);
+  assert.equal(budget.ownBudget, 90_000_000);
+});
+
+test('gifts with no wedding costs are fully reserved, not available for home expenses', () => {
+  const budget = calculateHomeBudget(10_000_000, { tax: '2000', extraGifts: '3000', loan: '30000' });
+  assert.equal(budget.giftReserve, 30_000_000);
+  assert.equal(budget.ownBudget, 0);
+  assert.equal(budget.outlayGap, 10_000_000);
+  assert.equal(budget.maxPrice, 0);
+});
+
+test('each retirement fund and extra home funds increase own cash and target balance', () => {
+  const plan = { tax: '1000', reserve: '2000', loan: '30000', target: '50000' };
+  const original = calculateHomeBudget(200_000_000, plan);
+  const funded = calculateHomeBudget(200_000_000, { ...plan, retirementInwoong: '3000', retirementWoonjung: '2000', extraHomeFunds: '500' });
+  assert.equal(funded.addedHomeFunds, 55_000_000);
+  assert.equal(funded.cash - original.cash, 55_000_000);
+  assert.equal(funded.ownBudget - original.ownBudget, 55_000_000);
+  assert.equal(funded.maxPrice - original.maxPrice, 55_000_000);
+  assert.equal(funded.targetBalance - original.targetBalance, 55_000_000);
+});
+
+test('extra home funds remain available while excess gifts are fully ring-fenced', () => {
+  const budget = calculateHomeBudget(100_000_000, { venue: '1000', extraGifts: '3000', retirementInwoong: '1000', extraHomeFunds: '500' });
+  assert.equal(budget.weddingOwnCost, 0);
+  assert.equal(budget.giftReserve, 20_000_000);
+  assert.equal(budget.ownBudget, 115_000_000);
 });

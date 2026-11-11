@@ -61,7 +61,7 @@ export function HomeBudgetPage({ userId, assetTotal, assetMonth, assetLoading })
   const sourceAvailable = assetTotal !== null;
   const metrics = [
     ['매수 부대비용', budget.groupTotals[0], 'fees'],
-    ['결혼 · 신혼여행', budget.groupTotals[1], 'wedding'],
+    ['결혼 · 신혼여행 자기부담', budget.weddingOwnCost, 'wedding'],
     ['입주 · 신혼 살림', budget.groupTotals[2], 'move'],
     ['비상금', budget.reserve, 'reserve'],
     ['집값에 쓸 자기자금', budget.ownBudget, 'cash'],
@@ -85,6 +85,9 @@ export function HomeBudgetPage({ userId, assetTotal, assetMonth, assetLoading })
             <div className="plan-section-head"><h2><WalletCards size={19} /> 자금 계획</h2><span>단위: 만원</span></div>
             {field('excluded', '당장 쓸 수 없는 자산', '돌려받기 전 보증금, 유지할 연금 등')}
             {field('reserve', '따로 남길 비상금')}
+            {field('retirementInwoong', '인웅 주택구입용 퇴직금', '현재 자산에 포함하지 않은 사용 예정 금액')}
+            {field('retirementWoonjung', '운정 주택구입용 퇴직금', '현재 자산에 포함하지 않은 사용 예정 금액')}
+            {field('extraHomeFunds', '추가 주택구입 자금', '현재 자산에 포함하지 않은 추가 자금')}
             {field('loan', '예상 주택담보대출', '실제로 사용할 예정인 금액')}
             {field('target', '비교할 아파트 매매가')}
           </section>
@@ -102,7 +105,9 @@ export function HomeBudgetPage({ userId, assetTotal, assetMonth, assetLoading })
                 </div>
                 {field('extraGifts', '추가 예상 축의금', '아직 명단에 없는 금액만 입력')}
                 {guestGifts.received > 0 && field('giftsInAssets', '자산에 이미 포함한 축의금', '명단에 기록한 받은 금액 중 자산 현황에 반영한 금액')}
-                <div className="plan-field plan-gift-total"><h3>예산에 더할 축의금</h3><strong>+{money(budget.giftContribution)}</strong></div>
+                <div className="plan-field plan-gift-total"><h3>결혼 · 신혼여행에 쓸 축의금</h3><strong>{money(budget.weddingGiftCoverage)}</strong></div>
+                <div className="plan-field"><h3>결혼 · 신혼여행 자기부담</h3><strong>{money(budget.weddingOwnCost)}</strong></div>
+                <div className="plan-field"><div><h3>남는 축의금 · 추가 비상금</h3><small>집값에 쓸 자기자금에서 제외</small></div><strong>{money(budget.giftReserve)}</strong></div>
               </div>}
             </details>
           ))}
@@ -124,7 +129,10 @@ export function HomeBudgetPage({ userId, assetTotal, assetMonth, assetLoading })
             <dl className="plan-source">
               <div><dt>합산 자산</dt><dd>{sourceAvailable ? money(assetTotal) : '—'}</dd></div>
               <div><dt>사용 제외 자산</dt><dd>{budget.excluded ? `−${money(budget.excluded)}` : money(0)}</dd></div>
-              <div><dt>축의금 (중복 제외)</dt><dd>+{money(budget.giftContribution)}</dd></div>
+              <div><dt>인웅 주택구입용 퇴직금</dt><dd>+{money(budget.retirementInwoong)}</dd></div>
+              <div><dt>운정 주택구입용 퇴직금</dt><dd>+{money(budget.retirementWoonjung)}</dd></div>
+              <div><dt>추가 주택구입 자금</dt><dd>+{money(budget.extraHomeFunds)}</dd></div>
+              {budget.giftsInAssets > 0 && <div><dt>자산에 포함된 축의금 제외</dt><dd>−{money(budget.giftsInAssets)}</dd></div>}
               <div><dt>쓸 수 있는 자기자금</dt><dd>{sourceAvailable ? money(budget.cash) : '—'}</dd></div>
             </dl>
             {sourceAvailable && barTotal > 0 && <div className="plan-allocation" aria-hidden="true">
@@ -133,17 +141,18 @@ export function HomeBudgetPage({ userId, assetTotal, assetMonth, assetLoading })
             <dl className="plan-legend">
               {metrics.map(([label, value, tone]) => <div key={label}><dt><i data-tone={tone} />{label}</dt><dd>{tone === 'cash' && !sourceAvailable ? '—' : money(value)}</dd></div>)}
             </dl>
+            <dl className="plan-source"><div><dt>별도 보관할 축의금 비상금</dt><dd>{money(budget.giftReserve)}</dd></div></dl>
             {sourceAvailable && budget.outlayGap > 0 && <p className="plan-warning">집값을 빼고도 비용·비상금에 쓸 자기자금이 {money(budget.outlayGap)} 부족합니다.</p>}
           </section>
           {sourceAvailable && budget.target > 0 && <section className="plan-section plan-breakdown">
             <div className="plan-section-head"><h2>목표 매매가 비교</h2></div>
             <dl className="plan-source">
               <div><dt>목표 매매가</dt><dd>{money(budget.target)}</dd></div>
-              <div><dt>비용·비상금 포함 필요액</dt><dd>{money(budget.target + budget.outlays)}</dd></div>
+              <div><dt>축의금 충당 후 필요액</dt><dd>{money(budget.target + budget.outlays)}</dd></div>
               <div data-negative={budget.targetBalance < 0}><dt>{budget.targetBalance < 0 ? '부족한 자금' : '남는 자금'}</dt><dd>{money(Math.abs(budget.targetBalance))}</dd></div>
             </dl>
           </section>}
-          <p className="plan-footnote">예상 축의금까지 포함한 예산입니다. 실제로 받을 금액과 매수 비용이 달라지면 예산도 달라집니다.</p>
+          <p className="plan-footnote">축의금은 결혼·신혼여행 비용에만 사용하고, 잔액은 별도 비상금으로 남깁니다. 예상 축의금과 실제 받은 금액에 따라 자기부담액은 달라질 수 있습니다.</p>
         </aside>
       </div>
     </section>
